@@ -5,11 +5,15 @@
   "type": "module",
   "scripts": {
     "dev": "vite",
+    "9router": "9router",
+    "start": "concurrently \"npm run dev\" \"npm run 9router\"",
     "build": "vite build",
     "preview": "vite preview"
   },
   "dependencies": {
+    "9router": "^0.3.57",
     "@google/genai": "^1.27.0",
+    "openai": "^6.27.0",
     "react": "^19.2.0",
     "react-dom": "^19.2.0"
   },
@@ -19,6 +23,7 @@
     "@types/react": "^19.2.14",
     "@types/react-dom": "^19.2.3",
     "@vitejs/plugin-react": "^5.0.0",
+    "concurrently": "^9.2.1",
     "tailwindcss": "^4.1.18",
     "typescript": "~5.8.2",
     "vite": "^6.2.0"
