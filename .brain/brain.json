@@ -1,0 +1,114 @@
+{
+    "meta": {
+        "schema_version": "1.1.0",
+        "awf_version": "3.3.0"
+    },
+    "project": {
+        "name": "Youtube Content Architect (Phân Tích & Sáng Tác Kịch Bản YouTube)",
+        "type": "Web Application (React SPA)",
+        "status": "active",
+        "description": "Công cụ AI giúp phân tích transcript YouTube, viết kịch bản sáng tạo với nhiều phong cách, tạo giọng đọc AI, dịch đa ngôn ngữ."
+    },
+    "tech_stack": {
+        "frontend": {
+            "framework": "React 19.2.3",
+            "builder": "Vite 6.4.1",
+            "styling": "Tailwind CSS 4.1.18 (via @tailwindcss/vite plugin)",
+            "language": "TypeScript 5.8.2",
+            "types": "@types/react 19.2.14, @types/react-dom 19.2.3"
+        },
+        "ai": {
+            "provider": "Google Gemini (@google/genai ^1.27.0)",
+            "models": {
+                "analysis_and_script": "gemini-2.5-flash",
+                "tts": "gemini-2.5-flash-preview-tts"
+            },
+            "api_key_method": "Vite define plugin injects process.env.GEMINI_API_KEY from .env.local (bundled client-side, dev-only safe)"
+        },
+        "storage": "LocalStorage for history, IndexedDB service exists for audio (audioStorageService.ts)"
+    },
+    "architecture": {
+        "entry_point": "index.tsx → App.tsx",
+        "components": {
+            "App.tsx": "Main app state, routing between analysis/scriptwriter, history management, beforeunload protection",
+            "TranscriptInput.tsx": "Text/file input for YouTube transcripts",
+            "ResultDisplay.tsx": "Shows analysis results: titles, description, creative config suggestions, key points, hashtags, translation",
+            "ScriptWriter.tsx": "Full scriptwriting UI: creative config, structure/duration, script generation, audio TTS, translation",
+            "HistoryPanel.tsx": "Sidebar for saved analyses with import/export",
+            "ErrorBoundary.tsx": "Global React Error Boundary wrapping App in index.tsx",
+            "Header.tsx": "App header with branding",
+            "icons.tsx": "SVG icon components",
+            "CopyButton.tsx": "Reusable copy-to-clipboard button",
+            "LanguageSelector.tsx": "Language dropdown for translation",
+            "LoadingSpinner.tsx": "Loading indicator",
+            "ErrorDisplay.tsx": "Error message display"
+        },
+        "modules": {
+            "constants.ts": "Shared constants: STYLES, TONES, PLOT_TWISTS, ARCHETYPES, FOCUS_OPTIONS, TARGET_AUDIENCES, PACING_OPTIONS, VOICES, SPEED_OPTIONS + derived STYLE_LABELS/TONE_LABELS",
+            "types.ts": "TypeScript interfaces: ScriptMetadata, ScriptData, AudioVersion, AnalysisResult, SavedAnalysis",
+            "hooks/useAudioPlayer.ts": "Custom hook for TTS: AudioContext management, playback, preview, caching, chunk status",
+            "utils/audioUtils.ts": "Audio utilities: base64 encode/decode, PCM→AudioBuffer, WAV header, text splitting for TTS",
+            "services/geminiService.ts": "Gemini API: analyzeTranscript, translateResult, generateScript, translateStory, generateSpeech",
+            "services/audioStorageService.ts": "IndexedDB wrapper for persisting audio blobs"
+        }
+    },
+    "features": [
+        {
+            "name": "Transcript Analysis",
+            "description": "Phân tích bản ghi hoặc file video/audio để trích xuất chủ đề, ý chính, tiêu đề SEO, và gợi ý cấu hình sáng tạo (style, tone, audience, pacing, voice, duration, parts)."
+        },
+        {
+            "name": "Script Writer (Người Kể Chuyện AI)",
+            "description": "Sáng tác kịch bản với 8 tham số cấu hình: phong cách (11), giọng điệu (9), hình tượng nhân vật (7), trọng tâm (5), khán giả (6), nhịp độ (4), plot twist (5), mức sáng tạo (3). Chia thành 1-6 phần với slider thời lượng 1-30 phút. Chỉnh sửa ý chính trước khi tạo.",
+            "known_bug": "Prompt gửi Gemini chỉ dùng style + tone, KHÔNG dùng plotTwist, characterArchetype, focus, targetAudience, pacing. File: services/geminiService.ts dòng 203-206."
+        },
+        {
+            "name": "AI Voice Generation (TTS)",
+            "description": "10 giọng đọc AI (5 nam, 5 nữ), 5 tốc độ (0.75x-1.15x). Tạo audio cho từng phần, lưu nhiều version, tải xuống, xóa. Preview giọng trước khi tạo."
+        },
+        {
+            "name": "Multi-language Translation",
+            "description": "Dịch kết quả phân tích và kịch bản sang ngôn ngữ khác. Tab gốc/dịch trong ScriptWriter."
+        },
+        {
+            "name": "History Management",
+            "description": "Lưu trữ lịch sử phân tích và kịch bản vào LocalStorage. Import/Export JSON."
+        },
+        {
+            "name": "Error Boundary",
+            "description": "React Error Boundary bọc toàn bộ App, hiển thị UI lỗi tiếng Việt với nút Thử lại/Tải lại trang."
+        },
+        {
+            "name": "Data Loss Prevention",
+            "description": "beforeunload event listener cảnh báo khi đóng tab có dữ liệu chưa lưu."
+        }
+    ],
+    "business_rules": [
+        "Mô tả video (Description) phải ở dạng kể chuyện, không bắt đầu bằng 'Video này...'.",
+        "Tạo 3 tiêu đề chuẩn SEO cho mỗi phân tích.",
+        "Giọng đọc AI phải giữ được sự nhất quán (Consistency) trong suốt kịch bản.",
+        "Ước tính 140 từ/phút cho độ dài kịch bản.",
+        "SEO meta tags bằng tiếng Việt, lang=vi"
+    ],
+    "knowledge_items": {
+        "patterns": [
+            "Sử dụng Gemini model config với responseMimeType: 'application/json' để lấy dữ liệu có cấu trúc.",
+            "Import maps trong index.html cho React/Gemini CDN + node_modules cho dev types.",
+            "Custom hook pattern (useAudioPlayer) để tách logic phức tạp khỏi component.",
+            "Shared constants module để loại bỏ duplication giữa components."
+        ],
+        "gotchas": [
+            "Model gemini-2.5-flash-preview-tts yêu cầu tham số Modality.AUDIO trong responseModalities.",
+            "React 19 KHÔNG ship .d.ts types — phải cài @types/react riêng.",
+            "tsconfig useDefineForClassFields: false — dùng cho decorator compatibility nhưng KHÔNG ảnh hưởng class component nếu có @types/react.",
+            "Tailwind CSS v4: dùng @import 'tailwindcss' thay vì @tailwind directives.",
+            "generateScript prompt THIẾU 5/8 config params (plotTwist, characterArchetype, focus, targetAudience, pacing) — cần fix."
+        ],
+        "conventions": [
+            "UI language: Vietnamese (tiếng Việt)",
+            "Dark theme: Slate-900 background",
+            "Color coding: Purple cho original, Green cho translated",
+            "File structure: components/, services/, hooks/, utils/ at root level"
+        ]
+    }
+}

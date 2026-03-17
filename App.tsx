@@ -12,18 +12,18 @@ import { HistoryPanel } from './components/HistoryPanel';
 type View = 'main' | 'scriptWriter';
 
 interface ScriptWriterInputState {
-    result: AnalysisResult;
-    language: string;
-    initialData?: {
-        scriptData?: ScriptData | null;
-        translatedScriptData?: ScriptData | null;
-        audioCache?: Record<string, AudioVersion[]>;
-    }
+  result: AnalysisResult;
+  language: string;
+  initialData?: {
+    scriptData?: ScriptData | null;
+    translatedScriptData?: ScriptData | null;
+    audioCache?: Record<string, AudioVersion[]>;
+  }
 }
 
 const App: React.FC = () => {
   const [view, setView] = useState<View>('main');
-  
+
   // Input State
   const [inputMode, setInputMode] = useState<InputMode>('text');
   const [transcript, setTranscript] = useState<string>('');
@@ -57,6 +57,18 @@ const App: React.FC = () => {
     }
   }, []);
 
+  // Protect against data loss when closing tab with unsaved work
+  useEffect(() => {
+    const handleBeforeUnload = (e: BeforeUnloadEvent) => {
+      // Warn if there's an unsaved analysis result
+      if (result && !isCurrentAnalysisSaved) {
+        e.preventDefault();
+      }
+    };
+    window.addEventListener('beforeunload', handleBeforeUnload);
+    return () => window.removeEventListener('beforeunload', handleBeforeUnload);
+  }, [result, isCurrentAnalysisSaved]);
+
   const saveToStorage = (items: SavedAnalysis[]) => {
     localStorage.setItem('yt_analyzer_history', JSON.stringify(items));
     setSavedAnalyses(items);
@@ -81,15 +93,15 @@ const App: React.FC = () => {
         if (!fileData) throw new Error("Vui lòng chọn file.");
         analysis = await analyzeTranscript({ type: 'file', mimeType: fileData.type, data: fileData.data });
       } else {
-          // Fallback if somehow triggered
-          throw new Error("Chế độ chưa được hỗ trợ.");
+        // Fallback if somehow triggered
+        throw new Error("Chế độ chưa được hỗ trợ.");
       }
-      
+
       setResult(analysis);
 
       // Auto-detect and pre-select language
       if (analysis.language) {
-         setTargetLanguage(analysis.language);
+        setTargetLanguage(analysis.language);
       }
 
     } catch (err: any) {
@@ -105,36 +117,35 @@ const App: React.FC = () => {
     setIsTranslating(true);
     setTranslationError(null);
     setTranslatedResult(null);
-    setIsCurrentAnalysisSaved(false); 
+    setIsCurrentAnalysisSaved(false);
     try {
-        const translation = await translateResult(result, targetLanguage);
-        setTranslatedResult(translation);
-    } catch (err)
- {
-        console.error(err);
-        setTranslationError('Không thể dịch kết quả. Vui lòng thử lại.');
+      const translation = await translateResult(result, targetLanguage);
+      setTranslatedResult(translation);
+    } catch (err) {
+      console.error(err);
+      setTranslationError('Không thể dịch kết quả. Vui lòng thử lại.');
     } finally {
-        setIsTranslating(false);
+      setIsTranslating(false);
     }
   }, [result, targetLanguage]);
 
   const handleSaveAnalysis = useCallback(() => {
     if (!result) return;
-    
+
     // Store a simplified reference for file/text
-    const contentPreview = inputMode === 'text' 
-        ? transcript 
-        : `[File: ${fileData?.name || 'Video/Audio'}]`;
+    const contentPreview = inputMode === 'text'
+      ? transcript
+      : `[File: ${fileData?.name || 'Video/Audio'}]`;
 
     const newSave: SavedAnalysis = {
-        id: Date.now().toString(),
-        timestamp: Date.now(),
-        transcript: contentPreview,
-        result,
-        translatedResult,
-        targetLanguage
+      id: Date.now().toString(),
+      timestamp: Date.now(),
+      transcript: contentPreview,
+      result,
+      translatedResult,
+      targetLanguage
     };
-    
+
     const updated = [newSave, ...savedAnalyses];
     saveToStorage(updated);
     setIsCurrentAnalysisSaved(true);
@@ -150,28 +161,28 @@ const App: React.FC = () => {
     setTranscript(item.transcript);
     setInputMode('text'); // Default back to text view for history items
     setFileData(null);
-    
+
     setResult(item.result);
     setTranslatedResult(item.translatedResult);
     setTargetLanguage(item.targetLanguage);
     setIsCurrentAnalysisSaved(true);
     setIsHistoryOpen(false);
-    
+
     if (item.scriptData) {
-        setScriptWriterInput({
-            result: item.translatedResult || item.result,
-            language: item.targetLanguage,
-            initialData: {
-                scriptData: item.scriptData,
-                translatedScriptData: item.translatedScriptData
-            }
-        });
-        setView('scriptWriter');
+      setScriptWriterInput({
+        result: item.translatedResult || item.result,
+        language: item.targetLanguage,
+        initialData: {
+          scriptData: item.scriptData,
+          translatedScriptData: item.translatedScriptData
+        }
+      });
+      setView('scriptWriter');
     } else {
-        setView('main');
-        setScriptWriterInput(null);
+      setView('main');
+      setScriptWriterInput(null);
     }
-    
+
     setError(null);
   }, []);
 
@@ -189,38 +200,38 @@ const App: React.FC = () => {
 
   const handleExport = useCallback(() => {
     if (!result) return;
-     const contentPreview = inputMode === 'text' 
-        ? transcript 
-        : `[File: ${fileData?.name || 'Video/Audio'}]`;
+    const contentPreview = inputMode === 'text'
+      ? transcript
+      : `[File: ${fileData?.name || 'Video/Audio'}]`;
 
     const data: SavedAnalysis = {
-        id: Date.now().toString(),
-        timestamp: Date.now(),
-        transcript: contentPreview,
-        result,
-        translatedResult,
-        targetLanguage
+      id: Date.now().toString(),
+      timestamp: Date.now(),
+      transcript: contentPreview,
+      result,
+      translatedResult,
+      targetLanguage
     };
-    downloadJson(data, `phan-tich-${new Date().toISOString().slice(0,10)}.json`);
+    downloadJson(data, `phan-tich-${new Date().toISOString().slice(0, 10)}.json`);
   }, [result, transcript, fileData, inputMode, translatedResult, targetLanguage]);
 
   const handleScriptExport = useCallback((scriptData: ScriptData | null, translatedScriptData: ScriptData | null) => {
     if (!result) return;
-    const contentPreview = inputMode === 'text' 
-        ? transcript 
-        : `[File: ${fileData?.name || 'Video/Audio'}]`;
+    const contentPreview = inputMode === 'text'
+      ? transcript
+      : `[File: ${fileData?.name || 'Video/Audio'}]`;
 
     const data: SavedAnalysis = {
-        id: Date.now().toString(),
-        timestamp: Date.now(),
-        transcript: contentPreview,
-        result,
-        translatedResult,
-        targetLanguage,
-        scriptData,
-        translatedScriptData
+      id: Date.now().toString(),
+      timestamp: Date.now(),
+      transcript: contentPreview,
+      result,
+      translatedResult,
+      targetLanguage,
+      scriptData,
+      translatedScriptData
     };
-    downloadJson(data, `cau-chuyen-ai-${new Date().toISOString().slice(0,10)}.json`);
+    downloadJson(data, `cau-chuyen-ai-${new Date().toISOString().slice(0, 10)}.json`);
   }, [result, transcript, fileData, inputMode, translatedResult, targetLanguage]);
 
   const handleImport = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
@@ -229,70 +240,70 @@ const App: React.FC = () => {
 
     const reader = new FileReader();
     reader.onload = (event) => {
-        try {
-            const content = event.target?.result as string;
-            const data = JSON.parse(content) as SavedAnalysis;
-            
-            if (data.result && data.result.topic) {
-                setTranscript(data.transcript || '');
-                setFileData(null);
-                setInputMode('text');
-                setResult(data.result);
-                setTranslatedResult(data.translatedResult);
-                setTargetLanguage(data.targetLanguage);
-                setIsCurrentAnalysisSaved(false);
-                setError(null);
+      try {
+        const content = event.target?.result as string;
+        const data = JSON.parse(content) as SavedAnalysis;
 
-                if (data.scriptData) {
-                    setScriptWriterInput({
-                        result: data.translatedResult || data.result,
-                        language: data.targetLanguage,
-                        initialData: {
-                            scriptData: data.scriptData,
-                            translatedScriptData: data.translatedScriptData
-                        }
-                    });
-                    setView('scriptWriter');
-                } else {
-                    setView('main');
-                    setScriptWriterInput(null);
-                }
-            } else {
-                setError('File JSON không đúng định dạng.');
-            }
-        } catch (err) {
-            console.error(err);
-            setError('Lỗi khi đọc file.');
+        if (data.result && data.result.topic) {
+          setTranscript(data.transcript || '');
+          setFileData(null);
+          setInputMode('text');
+          setResult(data.result);
+          setTranslatedResult(data.translatedResult);
+          setTargetLanguage(data.targetLanguage);
+          setIsCurrentAnalysisSaved(false);
+          setError(null);
+
+          if (data.scriptData) {
+            setScriptWriterInput({
+              result: data.translatedResult || data.result,
+              language: data.targetLanguage,
+              initialData: {
+                scriptData: data.scriptData,
+                translatedScriptData: data.translatedScriptData
+              }
+            });
+            setView('scriptWriter');
+          } else {
+            setView('main');
+            setScriptWriterInput(null);
+          }
+        } else {
+          setError('File JSON không đúng định dạng.');
         }
+      } catch (err) {
+        console.error(err);
+        setError('Lỗi khi đọc file.');
+      }
     };
     reader.readAsText(file);
-    e.target.value = ''; 
+    e.target.value = '';
   }, []);
 
   const handleGoToScriptWriter = useCallback(() => {
     if (!translatedResult) return;
-    
+
     // Check if we have active input matching the current result to preserve state (from Back button)
     if (scriptWriterInput?.result === translatedResult) {
-         setView('scriptWriter');
-         return;
+      setView('scriptWriter');
+      return;
     }
 
     setScriptWriterInput({ result: translatedResult, language: targetLanguage });
     setView('scriptWriter');
   }, [translatedResult, targetLanguage, scriptWriterInput]);
-  
-  const handleBackToMain = useCallback((data?: { 
-      scriptData: ScriptData | null, 
-      translatedScriptData: ScriptData | null, 
-      audioCache: Record<string, AudioVersion[]> 
+
+  const handleBackToMain = useCallback((data?: {
+    scriptData: ScriptData | null,
+    translatedScriptData: ScriptData | null,
+    audioCache: Record<string, AudioVersion[]>
   }) => {
     // If data comes back, we update the input state so next time we open writer, it's there
     if (data && scriptWriterInput) {
-        setScriptWriterInput(prev => prev ? {
-            ...prev,
-            initialData: data
-        } : null);
+      setScriptWriterInput(prev => prev ? {
+        ...prev,
+        initialData: data
+      } : null);
     }
     setView('main');
   }, [scriptWriterInput]);
@@ -302,61 +313,61 @@ const App: React.FC = () => {
       <div className="w-full max-w-4xl mx-auto">
         {view === 'main' ? (
           <>
-             <Header onOpenHistory={() => setIsHistoryOpen(true)} onImport={handleImport} />
-             <main className="mt-8">
-               <TranscriptInput
-                 mode={inputMode}
-                 setMode={setInputMode}
-                 textData={transcript}
-                 onTextChange={(val) => {
-                    setTranscript(val);
-                    if (isCurrentAnalysisSaved) setIsCurrentAnalysisSaved(false);
-                 }}
-                 fileData={fileData}
-                 onFileChange={(file) => {
-                    setFileData(file);
-                    if (isCurrentAnalysisSaved) setIsCurrentAnalysisSaved(false);
-                 }}
-                 onAnalyze={handleAnalyze}
-                 isLoading={isLoading}
-               />
-     
-               {error && <ErrorDisplay message={error} />}
-     
-               {isLoading && <LoadingSpinner />}
-     
-               {result && !isLoading && (
-                 <div className="mt-8 animate-fade-in">
-                   <ResultDisplay
-                     result={result}
-                     translatedResult={translatedResult}
-                     onTranslate={handleTranslate}
-                     isTranslating={isTranslating}
-                     targetLanguage={targetLanguage}
-                     onLanguageChange={setTargetLanguage}
-                     translationError={translationError}
-                     onGoToScriptWriter={handleGoToScriptWriter}
-                     onSave={handleSaveAnalysis}
-                     isSaved={isCurrentAnalysisSaved}
-                     onExport={handleExport}
-                   />
-                 </div>
-               )}
-             </main>
+            <Header onOpenHistory={() => setIsHistoryOpen(true)} onImport={handleImport} />
+            <main className="mt-8">
+              <TranscriptInput
+                mode={inputMode}
+                setMode={setInputMode}
+                textData={transcript}
+                onTextChange={(val) => {
+                  setTranscript(val);
+                  if (isCurrentAnalysisSaved) setIsCurrentAnalysisSaved(false);
+                }}
+                fileData={fileData}
+                onFileChange={(file) => {
+                  setFileData(file);
+                  if (isCurrentAnalysisSaved) setIsCurrentAnalysisSaved(false);
+                }}
+                onAnalyze={handleAnalyze}
+                isLoading={isLoading}
+              />
+
+              {error && <ErrorDisplay message={error} />}
+
+              {isLoading && <LoadingSpinner />}
+
+              {result && !isLoading && (
+                <div className="mt-8 animate-fade-in">
+                  <ResultDisplay
+                    result={result}
+                    translatedResult={translatedResult}
+                    onTranslate={handleTranslate}
+                    isTranslating={isTranslating}
+                    targetLanguage={targetLanguage}
+                    onLanguageChange={setTargetLanguage}
+                    translationError={translationError}
+                    onGoToScriptWriter={handleGoToScriptWriter}
+                    onSave={handleSaveAnalysis}
+                    isSaved={isCurrentAnalysisSaved}
+                    onExport={handleExport}
+                  />
+                </div>
+              )}
+            </main>
           </>
         ) : (
-             scriptWriterInput && (
-                <ScriptWriter 
-                    input={scriptWriterInput} 
-                    onBack={handleBackToMain} 
-                    onExport={handleScriptExport}
-                />
-             )
+          scriptWriterInput && (
+            <ScriptWriter
+              input={scriptWriterInput}
+              onBack={handleBackToMain}
+              onExport={handleScriptExport}
+            />
+          )
         )}
       </div>
 
-      <HistoryPanel 
-        isOpen={isHistoryOpen} 
+      <HistoryPanel
+        isOpen={isHistoryOpen}
         onClose={() => setIsHistoryOpen(false)}
         savedItems={savedAnalyses}
         onLoad={handleLoadSaved}

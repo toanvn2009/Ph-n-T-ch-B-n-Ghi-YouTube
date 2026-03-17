@@ -1,0 +1,144 @@
+{
+    "updated_at": "2026-02-13T23:13:00+07:00",
+    "working_on": {
+        "feature": "App Improvement & Refactoring",
+        "task": "Completed 7/8 improvement tasks. Next: fix generateScript prompt bug",
+        "status": "paused",
+        "files": [
+            "components/ScriptWriter.tsx",
+            "components/ErrorBoundary.tsx",
+            "services/geminiService.ts",
+            "constants.ts",
+            "hooks/useAudioPlayer.ts",
+            "utils/audioUtils.ts",
+            "index.html",
+            "index.css",
+            "vite.config.ts",
+            "App.tsx",
+            "index.tsx"
+        ],
+        "notes": "Refactored ScriptWriter (1040→500 lines), added ErrorBoundary, beforeunload, SEO, Tailwind via Vite. Found critical bug: generateScript prompt ignores 5/8 config params."
+    },
+    "pending_tasks": [
+        {
+            "task": "Fix generateScript prompt — add plotTwist, characterArchetype, focus, targetAudience, pacing to Gemini prompt",
+            "priority": "high",
+            "notes": "File: services/geminiService.ts lines 203-206. Currently only sends style and tone."
+        },
+        {
+            "task": "H3: Audio memory optimization — store base64 data in IndexedDB instead of state",
+            "priority": "medium",
+            "notes": "audioStorageService.ts exists but not integrated with useAudioPlayer hook"
+        },
+        {
+            "task": "Add preset templates for common script configurations",
+            "priority": "low",
+            "notes": "E.g. 'YouTube Shorts hài hước', 'Video review chuyên sâu', 'Phim ngắn kịch tính'"
+        },
+        {
+            "task": "Add custom prompt/system instruction field for user",
+            "priority": "low",
+            "notes": "Let users add custom instructions before script generation"
+        },
+        {
+            "task": "V2: Test dev server on browser",
+            "priority": "medium",
+            "notes": "Build passes, dev server running, needs manual browser testing"
+        }
+    ],
+    "recent_changes": [
+        {
+            "timestamp": "2026-02-13T23:00:00+07:00",
+            "type": "refactor",
+            "description": "C1: Refactored ScriptWriter.tsx from 1040 to ~500 lines. Extracted constants.ts, utils/audioUtils.ts, hooks/useAudioPlayer.ts.",
+            "files": [
+                "components/ScriptWriter.tsx",
+                "constants.ts",
+                "utils/audioUtils.ts",
+                "hooks/useAudioPlayer.ts"
+            ]
+        },
+        {
+            "timestamp": "2026-02-13T23:02:00+07:00",
+            "type": "refactor",
+            "description": "H4: Removed duplicate STYLE_LABELS/TONE_LABELS from ResultDisplay.tsx, now imports from shared constants.ts.",
+            "files": [
+                "components/ResultDisplay.tsx",
+                "constants.ts"
+            ]
+        },
+        {
+            "timestamp": "2026-02-13T23:04:00+07:00",
+            "type": "feature",
+            "description": "H1: Created ErrorBoundary.tsx class component wrapping App in index.tsx. Shows Vietnamese error UI.",
+            "files": [
+                "components/ErrorBoundary.tsx",
+                "index.tsx"
+            ]
+        },
+        {
+            "timestamp": "2026-02-13T23:05:00+07:00",
+            "type": "feature",
+            "description": "H2: Added beforeunload event listener in App.tsx to prevent accidental data loss.",
+            "files": [
+                "App.tsx"
+            ]
+        },
+        {
+            "timestamp": "2026-02-13T23:07:00+07:00",
+            "type": "feature",
+            "description": "M1: Added SEO meta tags (description, theme-color, OG, Twitter Card) to index.html, changed lang to 'vi'.",
+            "files": [
+                "index.html"
+            ]
+        },
+        {
+            "timestamp": "2026-02-13T23:08:00+07:00",
+            "type": "infrastructure",
+            "description": "M2: Replaced Tailwind CSS CDN with official @tailwindcss/vite plugin. Created index.css with @import 'tailwindcss'.",
+            "files": [
+                "vite.config.ts",
+                "index.css",
+                "index.html",
+                "package.json"
+            ]
+        },
+        {
+            "timestamp": "2026-02-13T23:09:00+07:00",
+            "type": "infrastructure",
+            "description": "Installed @types/react and @types/react-dom to fix React 19 class component type errors.",
+            "files": [
+                "package.json"
+            ]
+        }
+    ],
+    "errors_encountered": [
+        {
+            "error": "TS2339: Property 'state/setState/props' does not exist on type 'ErrorBoundary'",
+            "solution": "React 19 doesn't ship .d.ts types. Install @types/react and @types/react-dom.",
+            "resolved": true
+        }
+    ],
+    "decisions_made": [
+        {
+            "decision": "Extract constants.ts as shared module",
+            "reason": "Eliminate duplicate STYLE_LABELS/TONE_LABELS between ScriptWriter and ResultDisplay"
+        },
+        {
+            "decision": "Use custom hook useAudioPlayer for audio logic",
+            "reason": "ScriptWriter was 1040 lines, audio logic alone was ~230 lines"
+        },
+        {
+            "decision": "Install @types/react instead of changing tsconfig",
+            "reason": "React 19 doesn't ship types, useDefineForClassFields is project-specific"
+        },
+        {
+            "decision": "Tailwind CSS v4 via @tailwindcss/vite plugin instead of CDN",
+            "reason": "Production build benefit, tree-shaking, proper CSS output (45KB vs full CDN)"
+        },
+        {
+            "decision": "Keep useDefineForClassFields: false in tsconfig",
+            "reason": "Original project setting, possibly needed for decorator compatibility"
+        }
+    ]
+}
