@@ -1,5 +1,5 @@
 {
-    "updated_at": "2026-02-13T23:13:00+07:00",
+    "updated_at": "2026-03-17T23:31:00+07:00",
     "working_on": {
         "feature": "App Improvement & Refactoring",
         "task": "Completed 7/8 improvement tasks. Next: fix generateScript prompt bug",
@@ -110,12 +110,23 @@
             "files": [
                 "package.json"
             ]
+        },
+        {
+            "timestamp": "2026-03-17T23:31:00+07:00",
+            "type": "infrastructure",
+            "description": "Fix lỗi 502 fetch failed (interception loop) của 9router khi chạy MITM qua gemini-cli bằng việc phân tích source code 9router, tạo patch local và cuối cùng cài đặt bản offical v0.3.58",
+            "files": ["D:/antigravity/9router/scripts/*"]
         }
     ],
     "errors_encountered": [
         {
             "error": "TS2339: Property 'state/setState/props' does not exist on type 'ErrorBoundary'",
             "solution": "React 19 doesn't ship .d.ts types. Install @types/react and @types/react-dom.",
+            "resolved": true
+        },
+        {
+            "error": "9router MITM + gemini-cli: 502 fetch failed (reset after 30s) vì tự chặn proxy chính mình.",
+            "solution": "Analyze loop của cloudcode-pa.googleapis.com, chèn x-request-source: local. Sau dó cài thẳng npm install -g 9router@latest khi bản 0.3.58 release.",
             "resolved": true
         }
     ],
@@ -139,6 +150,10 @@
         {
             "decision": "Keep useDefineForClassFields: false in tsconfig",
             "reason": "Original project setting, possibly needed for decorator compatibility"
+        },
+        {
+            "decision": "Dùng thẳng bản 9router official v0.3.58 trên hệ thống",
+            "reason": "Thay vì tự duy trì patch custom launcher PM2 qua script .ps1, cập nhật official ổn định và an toàn hơn cho system wide."
         }
     ]
 }

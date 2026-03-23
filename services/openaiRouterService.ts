@@ -109,3 +109,49 @@ export async function generateRouterJson<T>(params: {
     throw new Error("Phản hồi từ 9router không đúng định dạng JSON.");
   }
 }
+
+export async function generateRouterJsonWithFile<T>(params: {
+  prompt: string;
+  file: { mimeType: string; data: string };
+  systemInstruction?: string;
+  temperature?: number;
+  model?: string;
+}): Promise<T> {
+  const client = getRouterClient();
+
+  const messages: Array<OpenAI.Chat.Completions.ChatCompletionMessageParam> = [];
+  if (params.systemInstruction) {
+    messages.push({ role: "system", content: params.systemInstruction });
+  }
+
+  messages.push({
+    role: "user",
+    content: [
+      {
+        type: "image_url",
+        image_url: { url: `data:${params.file.mimeType};base64,${params.file.data}` },
+      },
+      {
+        type: "text",
+        text: `${params.prompt}\n\nCRITICAL: Return ONLY valid JSON. No extra text.`,
+      },
+    ],
+  });
+
+  const response = await withRetry(() =>
+    client.chat.completions.create({
+      model: params.model || DEFAULT_MODEL,
+      messages,
+      temperature: params.temperature ?? 0.2,
+      max_tokens: 8192,
+    })
+  );
+
+  const raw = response.choices[0]?.message?.content?.trim() || "";
+
+  try {
+    return JSON.parse(extractJson(raw)) as T;
+  } catch (error) {
+    throw new Error("Phản hồi từ 9router không đúng định dạng JSON.");
+  }
+}

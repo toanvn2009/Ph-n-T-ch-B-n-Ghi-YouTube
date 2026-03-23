@@ -102,7 +102,8 @@
             "React 19 KHÔNG ship .d.ts types — phải cài @types/react riêng.",
             "tsconfig useDefineForClassFields: false — dùng cho decorator compatibility nhưng KHÔNG ảnh hưởng class component nếu có @types/react.",
             "Tailwind CSS v4: dùng @import 'tailwindcss' thay vì @tailwind directives.",
-            "generateScript prompt THIẾU 5/8 config params (plotTwist, characterArchetype, focus, targetAudience, pacing) — cần fix."
+            "generateScript prompt THIẾU 5/8 config params (plotTwist, characterArchetype, focus, targetAudience, pacing) — cần fix.",
+            "Khi dùng 9router với gemini-cli, luôn đảm bảo phiên bản 9router >= 0.3.58 để không bị lỗi 502 fetch failed (reset after 30s) do MITM loop."
         ],
         "conventions": [
             "UI language: Vietnamese (tiếng Việt)",

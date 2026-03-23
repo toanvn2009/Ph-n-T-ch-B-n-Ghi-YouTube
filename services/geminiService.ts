@@ -1,6 +1,6 @@
 import { GoogleGenAI, Type, Modality } from "@google/genai";
 import type { AnalysisResult, ScriptMetadata } from "../types";
-import { generateRouterJson, generateRouterText } from "./openaiRouterService";
+import { generateRouterJson, generateRouterText, generateRouterJsonWithFile } from "./openaiRouterService";
 
 const GEMINI_API_KEY = process.env.GEMINI_API_KEY || process.env.API_KEY;
 
@@ -164,29 +164,14 @@ Trả về JSON với đầy đủ các trường:
       return sanitizeAnalysisResult(result);
     }
 
-    // Hybrid fallback: file analysis vẫn dùng Gemini SDK để đảm bảo khả năng xử lý inlineData
-    const text = await callApiWithRetry(async () => {
-      const response = await ai.models.generateContent({
-        model: "gemini-2.5-flash",
-        contents: [
-          { inlineData: { mimeType: input.mimeType, data: input.data } },
-          { text: `Phân tích nội dung này.\n\n${analysisPrompt}` },
-        ],
-        config: {
-          systemInstruction,
-          responseMimeType: "application/json",
-          responseSchema,
-          temperature: 0.3,
-        },
-      });
-
-      if (!response.text) {
-        throw new Error("Received empty response text from AI.");
-      }
-      return response.text;
+    // File analysis qua 9router (OpenAI-compatible multimodal)
+    const result = await generateRouterJsonWithFile<Partial<AnalysisResult>>({
+      systemInstruction,
+      temperature: 0.3,
+      prompt: `Phân tích nội dung này.\n\n${analysisPrompt}`,
+      file: { mimeType: input.mimeType, data: input.data },
     });
-
-    return sanitizeAnalysisResult(JSON.parse(text.trim()) as Partial<AnalysisResult>);
+    return sanitizeAnalysisResult(result);
   } catch (error) {
     console.error(error);
     throw new Error("Không thể phân tích nội dung. Vui lòng thử lại.");
