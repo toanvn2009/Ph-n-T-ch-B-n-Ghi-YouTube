@@ -1,9 +1,9 @@
 {
-    "updated_at": "2026-03-17T23:31:00+07:00",
+    "updated_at": "2026-03-28T23:55:00+07:00",
     "working_on": {
-        "feature": "App Improvement & Refactoring",
-        "task": "Completed 7/8 improvement tasks. Next: fix generateScript prompt bug",
-        "status": "paused",
+        "feature": "Optimizing TTS Voices & Startup UX",
+        "task": "Completed. Optimized English Podcast voices, added natural speed steps, consolidated npm start.",
+        "status": "active",
         "files": [
             "components/ScriptWriter.tsx",
             "components/ErrorBoundary.tsx",
@@ -112,10 +112,44 @@
             ]
         },
         {
-            "timestamp": "2026-03-17T23:31:00+07:00",
-            "type": "infrastructure",
-            "description": "Fix lỗi 502 fetch failed (interception loop) của 9router khi chạy MITM qua gemini-cli bằng việc phân tích source code 9router, tạo patch local và cuối cùng cài đặt bản offical v0.3.58",
-            "files": ["D:/antigravity/9router/scripts/*"]
+            "timestamp": "2026-03-28T20:30:00+07:00",
+            "type": "feature",
+            "description": "Di chuyển toàn bộ hệ thống TTS sang Edge TTS. Tạo backend Express (port 3001) dùng edge-tts-universal để tiết kiệm token Gemini và lấy giọng Việt tự nhiên.",
+            "files": [
+                "server/tts.ts",
+                "services/edgeTtsService.ts",
+                "vite.config.ts",
+                "package.json",
+                "constants.ts"
+            ]
+        },
+        {
+            "timestamp": "2026-03-28T21:15:00+07:00",
+            "type": "feature",
+            "description": "Nâng cấp giao diện Audio Player: Thanh tiến trình gradient, hỗ trợ nhấn để Tua (Seek), hiển thị thời gian thực và thời lượng.",
+            "files": [
+                "components/ScriptWriter.tsx",
+                "hooks/useAudioPlayer.ts",
+                "types.ts"
+            ]
+        },
+        {
+            "timestamp": "2026-03-28T21:30:00+07:00",
+            "type": "fix",
+            "description": "Thêm cơ chế Fallback tự động trong backend TTS. Nếu giọng AI Multilingual hoặc server lỗi, tự động chuyển sang giọng Hoài My.",
+            "files": [
+                "server/tts.ts"
+            ]
+        },
+        {
+            "timestamp": "2026-03-28T23:50:00+07:00",
+            "type": "optimization",
+            "description": "Tối ưu hóa danh sách giọng Podcast tiếng Anh, xóa giọng lỗi, thêm tùy chọn tốc độ 0.9x/0.95x và gộp lệnh npm start.",
+            "files": [
+                "constants.ts",
+                "server/tts.ts",
+                "package.json"
+            ]
         }
     ],
     "errors_encountered": [
@@ -127,6 +161,11 @@
         {
             "error": "9router MITM + gemini-cli: 502 fetch failed (reset after 30s) vì tự chặn proxy chính mình.",
             "solution": "Analyze loop của cloudcode-pa.googleapis.com, chèn x-request-source: local. Sau dó cài thẳng npm install -g 9router@latest khi bản 0.3.58 release.",
+            "resolved": true
+        },
+        {
+            "error": "Conflict cổng 3000 khi khởi động Vite, dẫn đến port bị đẩy lên 3001 trùng với Backend.",
+            "solution": "Tìm PIDs chiếm dụng cổng 3000 bằng netstat và kill bằng taskkill trước khi restart server.",
             "resolved": true
         }
     ],
@@ -154,6 +193,14 @@
         {
             "decision": "Dùng thẳng bản 9router official v0.3.58 trên hệ thống",
             "reason": "Thay vì tự duy trì patch custom launcher PM2 qua script .ps1, cập nhật official ổn định và an toàn hơn cho system wide."
+        },
+        {
+            "decision": "Thiết lập Backend Express riêng (3001) cho Edge TTS",
+            "reason": "Thư viện edge-tts-universal yêu cầu Node.js environment (fs, net...), không chạy được trực tiếp trên browser."
+        },
+        {
+            "decision": "Áp dụng cơ chế Fallback về giọng Hoài My",
+            "reason": "Đảm bảo tính sẵn sàng cao (High Availability) cho tính năng TTS, tránh treo UI khi AI voice bên thứ 3 lỗi."
         }
     ]
 }

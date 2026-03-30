@@ -69,20 +69,23 @@ export const PACING_OPTIONS = [
 ] as const;
 
 export const VOICES = [
-    { value: 'Kore', label: 'Kore (Nữ, Dịu dàng)' },
-    { value: 'Puck', label: 'Puck (Nam, Tự nhiên)' },
-    { value: 'Charon', label: 'Charon (Nam, Trầm ấm)' },
-    { value: 'Fenrir', label: 'Fenrir (Nam, Mạnh mẽ)' },
-    { value: 'Zephyr', label: 'Zephyr (Nữ, Thanh thoát)' },
-    { value: 'Aoede', label: 'Aoede (Nữ, Biểu cảm)' },
-    { value: 'Leda', label: 'Leda (Nữ, Nhẹ nhàng)' },
-    { value: 'Orus', label: 'Orus (Nam, Tự tin)' },
-    { value: 'Alnilam', label: 'Alnilam (Nam, Sâu lắng)' },
-    { value: 'Erinome', label: 'Erinome (Nữ, Trưởng thành)' },
+    // Native Vietnamese
+    { value: 'vi-VN-HoaiMyNeural', label: 'Hoài My (Nữ, Dịu dàng)' },
+    { value: 'vi-VN-NamMinhNeural', label: 'Nam Minh (Nam, Trầm ấm)' },
+    // Multilingual (đọc tiếng Việt chuẩn)
+    { value: 'en-US-AndrewMultilingualNeural', label: 'Andrew (Nam, Tự tin)' },
+    { value: 'en-US-BrianMultilingualNeural', label: 'Brian (Nam, Điềm đạm)' },
+    { value: 'en-US-EmmaMultilingualNeural', label: 'Emma (Nữ, Biểu cảm)' },
+    // English (Podcast / Storytelling)
+    { value: 'en-US-GuyNeural', label: 'Guy (Nam, Kể chuyện lôi cuốn - EN)' },
+    { value: 'en-US-SteffanNeural', label: 'Steffan (Nam, Tâm tình Podcast - EN)' },
+    { value: 'en-US-ChristopherNeural', label: 'Christopher (Nam, Rõ ràng tin tức - EN)' },
+    { value: 'en-US-EricNeural', label: 'Eric (Nam, Hiện đại năng động - EN)' },
 ] as const;
 
 export const SPEED_OPTIONS = [
-    { value: 0.75, label: '0.75x - Hơi chậm' },
+    { value: 0.9, label: '0.9x - Chậm' },
+    { value: 0.95, label: '0.95x - Hơi chậm' },
     { value: 1, label: '1x - Bình thường' },
     { value: 1.05, label: '1.05x - Hơi nhanh' },
     { value: 1.1, label: '1.1x - Nhanh' },

@@ -1,0 +1,35 @@
+Invoke-Expression : At line:1 char:78
++ ... VoicesManager } = require( ' edge-tts-universal ' ); (async () = cons ...
++                                                                  ~
+An expression was expected after '('.
+At line:1 char:125
++ ...  ' ); (async () = const manager = await VoicesManager.create(); const ...
++                                                                  ~
+An expression was expected after '('.
+At line:1 char:126
++ ... ' ); (async () = const manager = await VoicesManager.create(); const  ...
++                                                                  ~
+Missing closing ')' in expression.
+At line:1 char:215
++ ... ({ Locale:  ' vi-VN '  }); console.log(JSON.stringify(voices, null, 2 ...
++                                                                 ~
+Missing argument in parameter list.
+At line:1 char:228
++ ... :  ' vi-VN '  }); console.log(JSON.stringify(voices, null, 2)); })();
++                                                                     ~
+Unexpected token '}' in expression or statement.
+At line:1 char:229
++ ... :  ' vi-VN '  }); console.log(JSON.stringify(voices, null, 2)); })();
++                                                                      ~
+Unexpected token ')' in expression or statement.
+At line:1 char:231
++ ... :  ' vi-VN '  }); console.log(JSON.stringify(voices, null, 2)); })();
++                                                                        ~
+An expression was expected after '('.
+At C:\Users\pc\AppData\Local\Microsoft\WindowsApps\sandbox-exec-helper.ps1:12 char:13
++ if ($cmd) { Invoke-Expression $cmd } else { Write-Error 'No command f ...
++             ~~~~~~~~~~~~~~~~~~~~~~
+    + CategoryInfo          : ParserError: (:) [Invoke-Expression], ParseException
+    + FullyQualifiedErrorId : ExpectedExpression,Microsoft.PowerShell.Commands.Invoke 
+   ExpressionCommand
+ 

@@ -1,12 +1,25 @@
 import { useState, useRef, useEffect, useCallback } from 'react';
-import { generateSpeech } from '../services/geminiService';
+import { generateSpeechEdge } from '../services/edgeTtsService';
 import { AudioStorageService } from '../services/audioStorageService';
-import { encodeToBase64, decodeFromBase64, decodeAudioData, addWavHeader, splitTextForTTS } from '../utils/audioUtils';
+import { splitTextForTTS } from '../utils/audioUtils';
 import { VOICES } from '../constants';
 import type { AudioVersion } from '../types';
 
-const SAMPLE_RATE = 24000;
-const NUM_CHANNELS = 1;
+// Helper: base64 string → ArrayBuffer
+function base64ToArrayBuffer(base64: string): ArrayBuffer {
+    const binary = atob(base64);
+    const bytes = new Uint8Array(binary.length);
+    for (let i = 0; i < binary.length; i++) bytes[i] = binary.charCodeAt(i);
+    return bytes.buffer;
+}
+
+// Helper: ArrayBuffer → base64 string
+function arrayBufferToBase64(buffer: ArrayBuffer): string {
+    const bytes = new Uint8Array(buffer);
+    let binary = '';
+    for (let i = 0; i < bytes.length; i++) binary += String.fromCharCode(bytes[i]);
+    return btoa(binary);
+}
 
 interface UseAudioPlayerOptions {
     selectedVoice: string;
@@ -28,8 +41,12 @@ export function useAudioPlayer({ selectedVoice, playbackSpeed, language, storyTa
     const sourceNodeRef = useRef<AudioBufferSourceNode | null>(null);
     const previewCacheRef = useRef<Record<string, AudioBuffer>>({});
 
+
     const [audioOffset, setAudioOffset] = useState<number>(0);
     const [audioStartTime, setAudioStartTime] = useState<number>(0);
+    const [currentTime, setCurrentTime] = useState<number>(0);
+    const [playbackDuration, setPlaybackDuration] = useState<number>(0);
+    const timerRef = useRef<number | null>(null);
 
     // Cleanup on unmount
     useEffect(() => {
@@ -46,9 +63,16 @@ export function useAudioPlayer({ selectedVoice, playbackSpeed, language, storyTa
 
     const getAudioContext = useCallback(() => {
         if (!audioContextRef.current) {
-            audioContextRef.current = new (window.AudioContext || (window as any).webkitAudioContext)({ sampleRate: SAMPLE_RATE });
+            audioContextRef.current = new (window.AudioContext || (window as any).webkitAudioContext)();
         }
         return audioContextRef.current;
+    }, []);
+
+    const stopTimer = useCallback(() => {
+        if (timerRef.current) {
+            clearInterval(timerRef.current);
+            timerRef.current = null;
+        }
     }, []);
 
     const playAudioData = useCallback(async (
@@ -57,7 +81,11 @@ export function useAudioPlayer({ selectedVoice, playbackSpeed, language, storyTa
         speedOverride?: number,
         startFromOffset: number = 0
     ) => {
-        if (sourceNodeRef.current) sourceNodeRef.current.stop();
+        if (sourceNodeRef.current) {
+            sourceNodeRef.current.onended = null;
+            sourceNodeRef.current.stop();
+        }
+        stopTimer();
         setAudioPlayingId(null);
         setIsPreviewPlaying(false);
 
@@ -65,15 +93,22 @@ export function useAudioPlayer({ selectedVoice, playbackSpeed, language, storyTa
 
         try {
             if (ctx.state === 'suspended') await ctx.resume();
-            const audioBuffer = await decodeAudioData(decodeFromBase64(base64Audio), ctx, SAMPLE_RATE, NUM_CHANNELS);
+            const mp3ArrayBuffer = base64ToArrayBuffer(base64Audio);
+            const audioBuffer = await ctx.decodeAudioData(mp3ArrayBuffer.slice(0));
             const source = ctx.createBufferSource();
             source.buffer = audioBuffer;
-            source.playbackRate.value = speedOverride || playbackSpeed;
+            const effectiveSpeed = speedOverride || playbackSpeed;
+            source.playbackRate.value = effectiveSpeed;
             source.connect(ctx.destination);
 
             source.onended = () => {
+                stopTimer();
                 setAudioPlayingId(prev => {
-                    if (prev === versionId) { setAudioOffset(0); return null; }
+                    if (prev === versionId) {
+                        setAudioOffset(0);
+                        setCurrentTime(0);
+                        return null;
+                    }
                     return prev;
                 });
                 setIsPreviewPlaying(false);
@@ -81,13 +116,54 @@ export function useAudioPlayer({ selectedVoice, playbackSpeed, language, storyTa
 
             sourceNodeRef.current = source;
             source.start(0, startFromOffset);
-            setAudioStartTime(ctx.currentTime);
+            
+            const now = ctx.currentTime;
+            setAudioStartTime(now);
             setAudioOffset(startFromOffset);
             setAudioPlayingId(versionId);
+            setPlaybackDuration(audioBuffer.duration);
+            setCurrentTime(startFromOffset);
+
+            // Cập nhật UI mỗi 100ms
+            timerRef.current = window.setInterval(() => {
+                const elapsedRealTime = ctx.currentTime - now;
+                const elapsedAudioTime = elapsedRealTime * effectiveSpeed;
+                const newPos = startFromOffset + elapsedAudioTime;
+                if (newPos >= audioBuffer.duration) {
+                    stopTimer();
+                    setCurrentTime(audioBuffer.duration);
+                } else {
+                    setCurrentTime(newPos);
+                }
+            }, 100);
         } catch (e) {
             console.error("Playback error", e);
         }
-    }, [getAudioContext, playbackSpeed]);
+    }, [getAudioContext, playbackSpeed, stopTimer]);
+
+    const handleStop = useCallback(() => {
+        if (sourceNodeRef.current) {
+            sourceNodeRef.current.onended = null;
+            sourceNodeRef.current.stop();
+        }
+        stopTimer();
+        setAudioPlayingId(null);
+        setIsPreviewPlaying(false);
+        setAudioOffset(0);
+        setCurrentTime(0);
+    }, [stopTimer]);
+
+    const handleSeek = useCallback(async (version: AudioVersion, newTime: number) => {
+        // Giới hạn trong khoảng [0, duration]
+        const seekTime = Math.max(0, Math.min(newTime, playbackDuration || 0));
+        setAudioOffset(seekTime);
+        setCurrentTime(seekTime);
+        
+        // Nếu đang phát version này thì phát lại từ vị trí mới
+        if (audioPlayingId === version.id) {
+            await playAudioData(version.data, version.id, version.speed, seekTime);
+        }
+    }, [audioPlayingId, playbackDuration, playAudioData]);
 
     const handleGenerateAudio = useCallback(async (
         text: string,
@@ -101,24 +177,30 @@ export function useAudioPlayer({ selectedVoice, playbackSpeed, language, storyTa
         try {
             const cleanText = text.replace(/\d{1,2}:\d{2}/g, '').trim();
             const textChunks = splitTextForTTS(cleanText);
-            const pcmChunks: Uint8Array[] = [];
+            const mp3Chunks: ArrayBuffer[] = [];
 
             for (let i = 0; i < textChunks.length; i++) {
                 setAudioChunkStatus(`Đang tạo âm thanh: đoạn ${i + 1}/${textChunks.length}`);
-                const base64Chunk = await generateSpeech(textChunks[i], selectedVoice);
-                pcmChunks.push(decodeFromBase64(base64Chunk));
-                if (i < textChunks.length - 1) await new Promise(r => setTimeout(r, 600));
+                const base64Mp3 = await generateSpeechEdge(textChunks[i], selectedVoice, playbackSpeed);
+                mp3Chunks.push(base64ToArrayBuffer(base64Mp3));
+                if (i < textChunks.length - 1) await new Promise(r => setTimeout(r, 300));
             }
 
-            const totalLength = pcmChunks.reduce((acc, curr) => acc + curr.length, 0);
-            const mergedPCM = new Uint8Array(totalLength);
-            let offset = 0;
-            pcmChunks.forEach(chunk => {
-                mergedPCM.set(chunk, offset);
-                offset += chunk.length;
+            const totalLength = mp3Chunks.reduce((acc, curr) => acc + curr.byteLength, 0);
+            const mergedMp3 = new Uint8Array(totalLength);
+            let byteOffset = 0;
+            mp3Chunks.forEach(chunk => {
+                mergedMp3.set(new Uint8Array(chunk), byteOffset);
+                byteOffset += chunk.byteLength;
             });
 
-            const finalBase64Audio = encodeToBase64(mergedPCM);
+            const finalBase64Audio = arrayBufferToBase64(mergedMp3.buffer);
+            
+            // Lấy duration từ việc decode buffer đã merge
+            const ctx = getAudioContext();
+            const audioBuffer = await ctx.decodeAudioData(mergedMp3.buffer.slice(0));
+            const duration = audioBuffer.duration;
+
             const selectedVoiceObj = VOICES.find(v => v.value === selectedVoice);
             const voiceLabel = selectedVoiceObj ? selectedVoiceObj.label.split('(')[0].trim() : selectedVoice;
 
@@ -128,6 +210,7 @@ export function useAudioPlayer({ selectedVoice, playbackSpeed, language, storyTa
                 voiceLabel: voiceLabel,
                 data: finalBase64Audio,
                 speed: playbackSpeed,
+                duration: duration,
                 createdAt: Date.now()
             };
 
@@ -176,13 +259,12 @@ export function useAudioPlayer({ selectedVoice, playbackSpeed, language, storyTa
 
     const handleDownloadAudioVersion = useCallback((version: AudioVersion, index: number, prefix: string) => {
         try {
-            const rawBytes = decodeFromBase64(version.data);
-            const effectiveSampleRate = Math.round(SAMPLE_RATE * (version.speed || 1));
-            const wavBuffer = addWavHeader(rawBytes, effectiveSampleRate);
-            const blob = new Blob([wavBuffer], { type: 'audio/wav' });
+            // Edge TTS trả MP3 → download trực tiếp
+            const mp3Buffer = base64ToArrayBuffer(version.data);
+            const blob = new Blob([mp3Buffer], { type: 'audio/mp3' });
             const url = URL.createObjectURL(blob);
             const a = document.createElement('a');
-            a.href = url; a.download = `audio-${prefix}-${index}-${version.voiceValue}-${version.speed || 1}x.wav`;
+            a.href = url; a.download = `audio-${prefix}-${index}-${version.voiceValue}.mp3`;
             document.body.appendChild(a); a.click();
             document.body.removeChild(a); URL.revokeObjectURL(url);
         } catch (err) {
@@ -228,12 +310,12 @@ export function useAudioPlayer({ selectedVoice, playbackSpeed, language, storyTa
             if (!audioBuffer) {
                 const cachedBase64 = await AudioStorageService.getAudio(cacheKey);
                 if (cachedBase64) {
-                    audioBuffer = await decodeAudioData(decodeFromBase64(cachedBase64), ctx, SAMPLE_RATE, NUM_CHANNELS);
+                    audioBuffer = await ctx.decodeAudioData(base64ToArrayBuffer(cachedBase64).slice(0));
                     previewCacheRef.current[cacheKey] = audioBuffer;
                 } else {
                     setIsPreviewingVoice(true);
-                    const base64Audio = await generateSpeech(textToPlay, selectedVoice);
-                    audioBuffer = await decodeAudioData(decodeFromBase64(base64Audio), ctx, SAMPLE_RATE, NUM_CHANNELS);
+                    const base64Audio = await generateSpeechEdge(textToPlay, selectedVoice, playbackSpeed);
+                    audioBuffer = await ctx.decodeAudioData(base64ToArrayBuffer(base64Audio).slice(0));
                     previewCacheRef.current[cacheKey] = audioBuffer;
                     await AudioStorageService.saveAudio(cacheKey, base64Audio);
                     setIsPreviewingVoice(false);
@@ -262,6 +344,8 @@ export function useAudioPlayer({ selectedVoice, playbackSpeed, language, storyTa
         isPreviewingVoice,
         isPreviewPlaying,
         audioOffset,
+        currentTime,
+        playbackDuration,
         // Setters needed by ScriptWriter
         setAudioPlayingId,
         setAudioOffset,
@@ -272,5 +356,7 @@ export function useAudioPlayer({ selectedVoice, playbackSpeed, language, storyTa
         handleDeleteVersion,
         handleDownloadAudioVersion,
         handleVoicePreview,
+        handleStop,
+        handleSeek
     };
 }

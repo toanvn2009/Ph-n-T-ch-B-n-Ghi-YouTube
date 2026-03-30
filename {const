@@ -1,0 +1,39 @@
+Invoke-Expression : At line:1 char:47
++ node -e import( ' edge-tts-universal ' ).then(async ({Communicate})=  ...
++                                               ~
+Missing ')' in method call.
+At line:1 char:394
++ ... ingualNeural ' ]; async function test(voice){const run=async()= c=new ...
++                                                                  ~
+An expression was expected after '('.
+At line:1 char:441
++ ... st run=async()= c=new Communicate( ' Xin ch…o b?n ' , {voice, rate: ' ...
++                                                                 ~
+Missing argument in parameter list.
+At line:1 char:477
++ ... ' Xin ch…o b?n ' , {voice, rate: ' +0% ' }); let total=0; for await ( ...
++                                                                  ~
+Missing opening '(' after keyword 'for'.
+At line:1 char:506
++ ... te: ' +0% ' }); let total=0; for await (const ch of c.stream()){ if(c ...
++                                                                  ~
+An expression was expected after '('.
+At line:1 char:535
++ ...  total=0; for await (const ch of c.stream()){ if(ch.type=== ' audio '
++                                                                            ~
+Missing closing ')' after expression in 'if' statement.
+At line:1 char:508
++ ...  ' +0% ' }); let total=0; for await (const ch of c.stream()){ if(ch.t ...
++                                                                 ~
+Missing closing '}' in statement block or type definition.
+At line:1 char:377
++ ... N-XiaoxiaoMultilingualNeural ' ]; async function test(voice){const ru ...
++                                                                 ~
+Missing closing '}' in statement block or type definition.
+At C:\Users\pc\AppData\Local\Microsoft\WindowsApps\sandbox-exec-helper.ps1:12 char:13
++ if ($cmd) { Invoke-Expression $cmd } else { Write-Error 'No command f ...
++             ~~~~~~~~~~~~~~~~~~~~~~
+    + CategoryInfo          : ParserError: (:) [Invoke-Expression], ParseException
+    + FullyQualifiedErrorId : MissingEndParenthesisInMethodCall,Microsoft.PowerShell. 
+   Commands.InvokeExpressionCommand
+ 

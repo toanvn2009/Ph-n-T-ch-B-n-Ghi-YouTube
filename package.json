@@ -5,26 +5,34 @@
   "type": "module",
   "scripts": {
     "dev": "vite",
+    "tts": "npx tsx server/tts.ts",
     "9router": "9router",
-    "start": "concurrently \"npm run dev\" \"npm run 9router\"",
+    "start": "concurrently \"npm run dev\" \"npm run tts\"",
+    "start:all": "concurrently \"npm run dev\" \"npm run tts\" \"npm run 9router\"",
     "build": "vite build",
     "preview": "vite preview"
   },
   "dependencies": {
-    "9router": "^0.3.57",
     "@google/genai": "^1.27.0",
+    "9router": "^0.3.57",
+    "cors": "^2.8.6",
+    "edge-tts-universal": "^1.4.0",
+    "express": "^5.2.1",
     "openai": "^6.27.0",
     "react": "^19.2.0",
     "react-dom": "^19.2.0"
   },
   "devDependencies": {
     "@tailwindcss/vite": "^4.1.18",
+    "@types/cors": "^2.8.19",
+    "@types/express": "^5.0.6",
     "@types/node": "^22.14.0",
     "@types/react": "^19.2.14",
     "@types/react-dom": "^19.2.3",
     "@vitejs/plugin-react": "^5.0.0",
     "concurrently": "^9.2.1",
     "tailwindcss": "^4.1.18",
+    "tsx": "^4.21.0",
     "typescript": "~5.8.2",
     "vite": "^6.2.0"
   }

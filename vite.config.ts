@@ -22,6 +22,11 @@ export default defineConfig(({ mode }) => {
             });
           },
         },
+        '/api/tts': {
+          target: 'http://localhost:3001',
+          changeOrigin: true,
+          secure: false,
+        },
       },
     },
     plugins: [react(), tailwindcss()],

@@ -1,0 +1,48 @@
+Invoke-Expression : At line:1 char:439
++ ... tringify({text: ' Xin ch…o, dƒy l… test gi?ng d?c. ' ,voice}); const  ...
++                                                                  ~
+Missing closing ')' in expression.
+At line:1 char:565
++ ...  ' /api/tts ' ,method: ' POST ' ,headers:{ ' Content-Type ' : ' appli ...
++                                                                 ~
+Unexpected token ':' in expression or statement.
+At line:1 char:636
++ ... ation/json ' , ' Content-Length ' :Buffer.byteLength(data)}},res= bod ...
++                                                                  ~
+Missing expression after ','.
+At line:1 char:636
++ ... n/json ' , ' Content-Length ' :Buffer.byteLength(data)}},res= body= ' ...
++                                                              ~~~~
+Unexpected token 'res=' in expression or statement.
+At line:1 char:636
++ ... ation/json ' , ' Content-Length ' :Buffer.byteLength(data)}},res= bod ...
++                                                                  ~
+Missing closing ')' in expression.
+At line:1 char:671
++ ... Buffer.byteLength(data)}},res= body= '  ' ;res.on( ' data ' ,d=>body+ ...
++                                                                  ~
+Missing expression after ','.
+At line:1 char:671
++ ... eLength(data)}},res= body= '  ' ;res.on( ' data ' ,d=>body+=d);res.on ...
++                                                        ~~~~~~~~~~
+Unexpected token 'd=>body+=d' in expression or statement.
+At line:1 char:671
++ ... Buffer.byteLength(data)}},res= body= '  ' ;res.on( ' data ' ,d=>body+ ...
++                                                                  ~
+Missing closing ')' in expression.
+At line:1 char:681
++ ... Length(data)}},res= body= '  ' ;res.on( ' data ' ,d=>body+=d);res.on( ...
++                                                                 ~
+Unexpected token ')' in expression or statement.
+At line:1 char:701
++ ...  body= '  ' ;res.on( ' data ' ,d=>body+=d);res.on( ' end ' ,()= j=JSO ...
++                                                                  ~
+An expression was expected after '('.
+Not all parse errors were reported.  Correct the reported errors and try again.
+At C:\Users\pc\AppData\Local\Microsoft\WindowsApps\sandbox-exec-helper.ps1:12 char:13
++ if ($cmd) { Invoke-Expression $cmd } else { Write-Error 'No command f ...
++             ~~~~~~~~~~~~~~~~~~~~~~
+    + CategoryInfo          : ParserError: (:) [Invoke-Expression], ParseException
+    + FullyQualifiedErrorId : MissingEndParenthesisInExpression,Microsoft.PowerShell.C 
+   ommands.InvokeExpressionCommand
+ 

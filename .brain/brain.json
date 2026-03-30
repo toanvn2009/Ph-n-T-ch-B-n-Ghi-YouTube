@@ -21,9 +21,10 @@
             "provider": "Google Gemini (@google/genai ^1.27.0)",
             "models": {
                 "analysis_and_script": "gemini-2.5-flash",
-                "tts": "gemini-2.5-flash-preview-tts"
+                "tts": "Edge TTS (via server/tts.ts with edge-tts-universal)"
             },
-            "api_key_method": "Vite define plugin injects process.env.GEMINI_API_KEY from .env.local (bundled client-side, dev-only safe)"
+            "api_key_method": "Vite define plugin injects process.env.GEMINI_API_KEY from .env.local (bundled client-side, dev-only safe)",
+            "tts_api_method": "Express backend (server/tts.ts) proxies to Microsoft Edge TTS API"
         },
         "storage": "LocalStorage for history, IndexedDB service exists for audio (audioStorageService.ts)"
     },
@@ -48,8 +49,10 @@
             "types.ts": "TypeScript interfaces: ScriptMetadata, ScriptData, AudioVersion, AnalysisResult, SavedAnalysis",
             "hooks/useAudioPlayer.ts": "Custom hook for TTS: AudioContext management, playback, preview, caching, chunk status",
             "utils/audioUtils.ts": "Audio utilities: base64 encode/decode, PCM→AudioBuffer, WAV header, text splitting for TTS",
-            "services/geminiService.ts": "Gemini API: analyzeTranscript, translateResult, generateScript, translateStory, generateSpeech",
-            "services/audioStorageService.ts": "IndexedDB wrapper for persisting audio blobs"
+            "services/geminiService.ts": "Gemini API: analyzeTranscript, translateResult, generateScript, translateStory",
+            "services/edgeTtsService.ts": "Frontend service gọi /api/tts của backend, xử lý tốc độ (speed → rate)",
+            "services/audioStorageService.ts": "IndexedDB wrapper for persisting audio blobs",
+            "server/tts.ts": "Express backend (port 3001) cho Edge TTS, hỗ trợ cơ chế tự động Fallback"
         }
     },
     "features": [
@@ -63,8 +66,8 @@
             "known_bug": "Prompt gửi Gemini chỉ dùng style + tone, KHÔNG dùng plotTwist, characterArchetype, focus, targetAudience, pacing. File: services/geminiService.ts dòng 203-206."
         },
         {
-            "name": "AI Voice Generation (TTS)",
-            "description": "10 giọng đọc AI (5 nam, 5 nữ), 5 tốc độ (0.75x-1.15x). Tạo audio cho từng phần, lưu nhiều version, tải xuống, xóa. Preview giọng trước khi tạo."
+            "name": "AI Voice Generation (TTS) - Edge TTS Edition",
+            "description": "Chuyển sang Edge TTS (miễn phí). Hỗ trợ danh sách giọng chọn lọc: 2 giọng thuần Việt (Hoài My, Nam Minh), 4 giọng nam Podcast tiếng Anh (Guy, Steffan, Christopher, Eric) và 3 giọng Multilingual ổn định. Tốc độ điều chỉnh linh hoạt (0.5x - 2.0x) với các nấc tinh tế 0.9x và 0.95x. Giao diện Player chuyên nghiệp với Seek/Progress Bar và cơ chế Fallback tự động."
         },
         {
             "name": "Multi-language Translation",
@@ -103,7 +106,9 @@
             "tsconfig useDefineForClassFields: false — dùng cho decorator compatibility nhưng KHÔNG ảnh hưởng class component nếu có @types/react.",
             "Tailwind CSS v4: dùng @import 'tailwindcss' thay vì @tailwind directives.",
             "generateScript prompt THIẾU 5/8 config params (plotTwist, characterArchetype, focus, targetAudience, pacing) — cần fix.",
-            "Khi dùng 9router với gemini-cli, luôn đảm bảo phiên bản 9router >= 0.3.58 để không bị lỗi 502 fetch failed (reset after 30s) do MITM loop."
+            "Khi dùng 9router với gemini-cli, luôn đảm bảo phiên bản 9router >= 0.3.58 để không bị lỗi 502 fetch failed (reset after 30s) do MITM loop.",
+            "Multilingual voices (Andrew, Brian, Emma...) có thể không ổn định tùy thời điểm. Cần cơ chế Fallback về giọng Native (Hoài My) để đảm bảo không lỗi UI.",
+            "Lỗi 'Port 3000 is in use': Thường do process Vite cũ chưa kill hẳn. Cần kill PID thủ công trước khi npm start để tránh conflict cổng với Backend (3001)."
         ],
         "conventions": [
             "UI language: Vietnamese (tiếng Việt)",

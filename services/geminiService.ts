@@ -341,24 +341,3 @@ ${previousTranslatedContext.slice(-800)}`,
   }
 };
 
-export const generateSpeech = async (text: string, voiceName: string): Promise<string> => {
-  return await callApiWithRetry(async () => {
-    const response = await ai.models.generateContent({
-      model: "gemini-2.5-flash-preview-tts",
-      contents: [{ parts: [{ text: `Say this in a perfectly consistent, professional voice: ${text}` }] }],
-      config: {
-        systemInstruction:
-          "You are a professional voice artist. You must maintain the exact same pitch, tone, and delivery speed for every sentence. Do not deviate or become more emotional as you read. Consistency is paramount.",
-        responseModalities: [Modality.AUDIO],
-        speechConfig: { voiceConfig: { prebuiltVoiceConfig: { voiceName } } },
-      },
-    });
-
-    const base64Audio = response.candidates?.[0]?.content?.parts?.[0]?.inlineData?.data;
-    if (!base64Audio) {
-      throw new Error("No audio data");
-    }
-
-    return base64Audio;
-  });
-};

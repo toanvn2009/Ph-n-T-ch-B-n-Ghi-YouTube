@@ -17,6 +17,7 @@ export interface AudioVersion {
     voiceLabel: string;
     data: string; // base64
     speed: number; // Playback speed (e.g., 1.0, 1.25, 0.75)
+    duration?: number; // Thời lượng (giây)
     createdAt: number;
 }
 
