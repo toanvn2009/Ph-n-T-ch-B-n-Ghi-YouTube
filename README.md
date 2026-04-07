@@ -10,8 +10,9 @@
 
 - **Edge TTS (Backend Express)** cho:
   - Tạo giọng đọc AI thực tế, tốc độ cao, miễn phí.
-  - Hỗ trợ giọng Việt (Hoài My, Nam Minh) và giọng Anh Podcast (Guy, Steffan, Christopher, Eric).
-  - Tự động Fallback khi một giọng nói gặp lỗi từ nhà cung cấp.
+  - Hỗ trợ giọng Việt (Hoài My, Nam Minh) và giọng Anh Podcast đa dạng (Guy, Steffan, Christopher, Eric, Aria, Ryan, Libby, Sonia).
+  - Gắn tag mục đích gợi ý: `[Learning]`, `[Podcast]`, `[News]`, `[YouTube]`.
+  - Cơ chế **Smart Fallback**: Tự động dự phòng dựa trên locale (giọng Anh lùi về giọng Anh, giọng Việt lùi về giọng Việt).
 - **9router (OpenAI-compatible)** cho:
   - Phân tích transcript text, sinh metadata.
   - Sáng tác kịch bản kịch tính (với plot twists, archetypes, focus).

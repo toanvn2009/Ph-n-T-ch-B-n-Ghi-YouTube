@@ -33,7 +33,10 @@ graph TD
 
 - Chạy trên cổng **3001**.
 - Giải quyết vấn đề bảo mật (CORS) và giới hạn môi trường của thư viện TTS (yêu cầu Node.js).
-- **Cơ chế Fallback**: Đảm bảo luồng audio không bao giờ đứt gãy bằng cách dự phòng các giọng đọc Native ổn định.
+- **Cơ chế Fallback thông minh (Locale-Aware)**: Đảm bảo luồng audio không bao giờ đứt gãy bằng cách dự phòng theo ngôn ngữ:
+  - `en-US` → Fallback về `en-US-GuyNeural`.
+  - `en-GB` → Fallback về `en-GB-RyanNeural`.
+  - `vi-VN` và các hệ khác → Fallback về `vi-VN-HoaiMyNeural`.
 
 ### 3. AI Gateway (9router)
 

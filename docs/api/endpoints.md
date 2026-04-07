@@ -10,7 +10,7 @@ Dịch vụ chuyển đổi văn bản thành giọng nói dùng thư viện `ed
 
 ### GET /api/tts/voices
 
-Lấy danh sách các giọng đọc được hỗ trợ.
+Lấy danh sách các giọng đọc được hỗ trợ (đã gắn tag mục đích như `[Learning]`, `[Podcast]`, `[News]`, `[YouTube]`).
 
 **Response (200):**
 
@@ -24,20 +24,14 @@ Lấy danh sách các giọng đọc được hỗ trợ.
       "locale": "vi-VN"
     },
     {
-      "value": "vi-VN-NamMinhNeural",
-      "label": "Nam Minh (Nam, Trầm)",
-      "gender": "Male",
-      "locale": "vi-VN"
-    },
-    {
       "value": "en-US-GuyNeural",
-      "label": "Guy (Narrator)",
+      "label": "Guy (Nam, Storytelling) [YouTube][News]",
       "gender": "Male",
       "locale": "en-US"
     },
     {
-      "value": "en-GB-SteffanNeural",
-      "label": "Steffan (Storyteller)",
+      "value": "en-GB-RyanNeural",
+      "label": "Ryan (Nam, UK) [Podcast]",
       "gender": "Male",
       "locale": "en-GB"
     }
@@ -82,7 +76,12 @@ Tạo audio từ văn bản.
 ```
 
 **Cơ chế Fallback:**
-Nếu `voice` được yêu cầu gặp lỗi từ phía Microsoft Edge API, server sẽ tự động sử dụng `vi-VN-HoaiMyNeural` làm dự phòng và trả về `fallbackApplied: true`.
+Nếu `voice` được yêu cầu gặp lỗi, server sẽ tự động chuyển đổi dựa trên locale:
+
+- Giọng `en-US/*` → Dự phòng bằng `en-US-GuyNeural`.
+- Giọng `en-GB/*` → Dự phòng bằng `en-GB-RyanNeural`.
+- Các giọng khác → Dự phòng bằng `vi-VN-HoaiMyNeural`.
+  Trả về `fallbackApplied: true` và `resolvedVoice` tương ứng.
 
 ---
 

@@ -10,7 +10,11 @@
     "start": "concurrently \"npm run dev\" \"npm run tts\"",
     "start:all": "concurrently \"npm run dev\" \"npm run tts\" \"npm run 9router\"",
     "build": "vite build",
-    "preview": "vite preview"
+    "preview": "vite preview",
+    "test:voices": "tsx test-voices.ts",
+    "test:voices:multi": "tsx test-multi.ts",
+    "test:voices:en": "tsx test-voices-2.ts",
+    "test:smoke": "npm run build && npm run test:voices:en"
   },
   "dependencies": {
     "@google/genai": "^1.27.0",

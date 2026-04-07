@@ -1,5 +1,61 @@
 # Changelog
 
+## [2026-04-07] - Infrastructure Stabilization & TTS Resilience Tuning
+
+### Added
+
+- **9router API Key Authentication**: Cấu hình `OPENAI_API_KEY` (key openclaw), `OPENAI_BASE_URL` (/v1 proxy 20128) và `OPENAI_MODEL` (`combo-tw4`) vào `.env.local` để ổn định hóa kết nối qua 9router.
+- **Retry Logic (TTS Backend)**: Tự động thử lại 3 lần (với delay 2s, 4s, 6s) khi gặp lỗi `NoAudioReceived` từ Microsoft Edge TTS server.
+- **Voice Validation (TTS Backend)**: Thêm hàm `resolveVoiceId()` để kiểm tra voice ID hợp lệ. Tự động chuyển hướng các giọng lạ (như giọng Gemini `Kore`, `Puck`) sang giọng fallback an toàn của Edge TTS thay vì bị crash server.
+- **Health Check Endpoint**: Thêm `/api/tts/health` để kiểm tra nhanh tình trạng kết nối tới dịch vụ Microsoft TTS.
+- **File-based Error Logging**: Backend TTS giờ đây ghi chi tiết lỗi vào `tts_error.txt` giúp chẩn đoán sự cố mạng/proxy nhanh hơn.
+
+### Changed
+
+- **Frontend Error Hints**: `services/edgeTtsService.ts` giờ đây hiển thị thông tin chi tiết hơn từ server (ví dụ: gợi ý đổi giọng hoặc chờ 1-2 phút) khi gặp sự cố TTS.
+
+### Fixed
+
+- Lỗi 500 (Internal Server Error) khi chọn nhầm các giọng cũ hoặc khi server Microsoft tạm thời gián đoạn.
+- Lỗi xác thực 9router (401/502) do cấu hình key mặc định `sk_9router` không đủ quyền.
+
+## [2026-03-31] - TTS Voice Strategy & UX Optimization
+
+### Added
+
+- **Gắn Tag Mục Đích (Purpose Tags)**: Thêm tag `[Learning]`, `[Podcast]`, `[News]`, `[YouTube]` trực tiếp vào label UI để người dùng chọn nhanh.
+- **Tùy biến Nghe Thử (Personalized Preview)**: Mỗi voice đều có 1 câu nghe thử riêng biệt trong `hooks/useAudioPlayer.ts`, đúng ngôn ngữ (EN/VI) và đúng ngữ cảnh của giọng đó.
+
+### Changed
+
+- **Cơ chế Fallback Locale-Aware**: Nâng cấp backend `server/tts.ts` để fallback thông minh (EN-US về Guy, EN-GB về Ryan) thay vì mặc định luôn về Hoài My.
+- **Dọn sạch Voice List**: Xóa giọng `Davis` do không ổn định và lỗi fallback về Việt Nam.
+
+### Fixed
+
+- Lỗi trùng lặp dòng cấu hình `en-US-SteffanNeural` trong danh sách voice.
+- Lỗi English voice bị đọc bằng giọng tiếng Việt khi gặp sự cố backend.
+
+## [2026-03-30] - Multilingual Validation, Fallback Cleanup & Stability Hardening
+
+### Added
+
+- Script kiểm tra thực tế voice multilingual tiếng Việt:
+  - `tmp_multilingual_vn_test.ts`
+  - `tmp_check_multilingual_fallback.ts`
+- Scripts test trong `package.json`:
+  - `test:voices`, `test:voices:multi`, `test:voices:en`, `test:smoke`
+
+### Changed
+
+- `App.tsx`: giới hạn và làm an toàn lưu lịch sử để giảm nguy cơ `QuotaExceededError`.
+- `hooks/useAudioPlayer.ts`: áp dụng giới hạn cache audio/preview và chuẩn hóa setter cache.
+- `server/tts.ts` + `constants.ts`: chỉ giữ voice multilingual pass test thực tế (`Andrew`, `Brian`, `Emma`, `Ava`), loại nhóm fallback ngầm.
+
+### Fixed
+
+- Sửa hiện tượng voice multilingual nghe trùng Hoài My do backend fallback âm thầm.
+
 ## [2026-03-28] - Optimized Voice List & Startup Command
 
 ### Added

@@ -72,15 +72,21 @@ export const VOICES = [
     // Native Vietnamese
     { value: 'vi-VN-HoaiMyNeural', label: 'Hoài My (Nữ, Dịu dàng)' },
     { value: 'vi-VN-NamMinhNeural', label: 'Nam Minh (Nam, Trầm ấm)' },
-    // Multilingual (đọc tiếng Việt chuẩn)
-    { value: 'en-US-AndrewMultilingualNeural', label: 'Andrew (Nam, Tự tin)' },
-    { value: 'en-US-BrianMultilingualNeural', label: 'Brian (Nam, Điềm đạm)' },
-    { value: 'en-US-EmmaMultilingualNeural', label: 'Emma (Nữ, Biểu cảm)' },
-    // English (Podcast / Storytelling)
-    { value: 'en-US-GuyNeural', label: 'Guy (Nam, Kể chuyện lôi cuốn - EN)' },
-    { value: 'en-US-SteffanNeural', label: 'Steffan (Nam, Tâm tình Podcast - EN)' },
-    { value: 'en-US-ChristopherNeural', label: 'Christopher (Nam, Rõ ràng tin tức - EN)' },
+    // Multilingual ổn định với tiếng Việt (đã test OK)
+    { value: 'en-US-AndrewMultilingualNeural', label: 'Andrew (Nam, Tự tin) [ML OK]' },
+    { value: 'en-US-BrianMultilingualNeural', label: 'Brian (Nam, Điềm đạm) [ML OK]' },
+    { value: 'en-US-EmmaMultilingualNeural', label: 'Emma (Nữ, Biểu cảm) [ML OK]' },
+    { value: 'en-US-AvaMultilingualNeural', label: 'Ava (Nữ, Tự nhiên) [ML OK]' },
+    // English (Learning / YouTube / Podcast / News)
+    { value: 'en-US-AriaNeural', label: 'Aria (Nữ, Đọc tin tức - EN) [News]' },
+    { value: 'en-US-GuyNeural', label: 'Guy (Nam, Kể chuyện lôi cuốn - EN) [YouTube][News]' },
+    { value: 'en-US-JennyNeural', label: 'Jenny (Nữ, Học tiếng Anh - EN) [Learning][YouTube]' },
+    { value: 'en-US-SteffanNeural', label: 'Steffan (Nam, Tâm tình Podcast - EN) [Podcast]' },
+    { value: 'en-US-ChristopherNeural', label: 'Christopher (Nam, Rõ ràng chuyên nghiệp - EN)' },
     { value: 'en-US-EricNeural', label: 'Eric (Nam, Hiện đại năng động - EN)' },
+    { value: 'en-GB-RyanNeural', label: 'Ryan (Nam, Podcast UK - EN) [Podcast]' },
+    { value: 'en-GB-LibbyNeural', label: 'Libby (Nữ, Podcast UK - EN) [Podcast]' },
+    { value: 'en-GB-SoniaNeural', label: 'Sonia (Nữ, Học tiếng Anh UK - EN) [Learning]' },
 ] as const;
 
 export const SPEED_OPTIONS = [

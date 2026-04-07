@@ -28,6 +28,28 @@ interface UseAudioPlayerOptions {
     storyTargetLanguage: string;
 }
 
+const MAX_AUDIO_VERSIONS_PER_KEY = 3;
+const MAX_AUDIO_CACHE_KEYS = 24;
+const MAX_PREVIEW_CACHE_ITEMS = 20;
+
+const VOICE_PREVIEW_TEXTS: Record<string, string> = {
+    'vi-VN-HoaiMyNeural': 'Xin chào, tôi là Hoài My. Đây là câu nghe thử dịu dàng cho kênh của bạn.',
+    'vi-VN-NamMinhNeural': 'Xin chào, tôi là Nam Minh. Đây là câu nghe thử trầm ấm và rõ ràng.',
+    'en-US-AndrewMultilingualNeural': 'Xin chào, tôi là Andrew. Đây là bản nghe thử tiếng Việt tự nhiên và mạch lạc.',
+    'en-US-BrianMultilingualNeural': 'Xin chào, tôi là Brian. Đây là câu nghe thử với giọng nam điềm đạm.',
+    'en-US-EmmaMultilingualNeural': 'Xin chào, tôi là Emma. Đây là bản đọc thử giàu cảm xúc bằng tiếng Việt.',
+    'en-US-AvaMultilingualNeural': 'Xin chào, tôi là Ava. Đây là câu nghe thử nhẹ nhàng, tự nhiên và dễ nghe.',
+    'en-US-AriaNeural': 'Good evening, I am Aria. Here is a clear and confident news-style preview.',
+    'en-US-GuyNeural': 'Hi there, I am Guy. This is a dynamic storytelling preview for your YouTube video.',
+    'en-US-JennyNeural': 'Hello, I am Jenny. This short preview is perfect for English learning practice.',
+    'en-US-SteffanNeural': 'Hello, I am Steffan. Here is a warm and conversational podcast preview.',
+    'en-US-ChristopherNeural': 'Hello, I am Christopher. This is a professional and articulate voice sample.',
+    'en-US-EricNeural': 'Hi, I am Eric. This preview has a modern and upbeat delivery style.',
+    'en-GB-RyanNeural': 'Hello, I am Ryan. This is a smooth British podcast voice preview.',
+    'en-GB-LibbyNeural': 'Hello, I am Libby. This is a friendly British podcast-style sample.',
+    'en-GB-SoniaNeural': 'Hello, I am Sonia. This preview is clear and natural for English learners.'
+};
+
 export function useAudioPlayer({ selectedVoice, playbackSpeed, language, storyTargetLanguage }: UseAudioPlayerOptions) {
     const [audioLoadingKey, setAudioLoadingKey] = useState<string | null>(null);
     const [audioChunkStatus, setAudioChunkStatus] = useState<string>('');
@@ -66,6 +88,29 @@ export function useAudioPlayer({ selectedVoice, playbackSpeed, language, storyTa
             audioContextRef.current = new (window.AudioContext || (window as any).webkitAudioContext)();
         }
         return audioContextRef.current;
+    }, []);
+
+    const normalizeAudioCache = useCallback((cache: Record<string, AudioVersion[]>) => {
+        const normalizedEntries = Object.entries(cache)
+            .map(([key, versions]) => {
+                const trimmedVersions = [...versions]
+                    .sort((a, b) => b.createdAt - a.createdAt)
+                    .slice(0, MAX_AUDIO_VERSIONS_PER_KEY);
+                return [key, trimmedVersions] as const;
+            })
+            .filter(([, versions]) => versions.length > 0)
+            .sort((a, b) => (b[1][0]?.createdAt || 0) - (a[1][0]?.createdAt || 0))
+            .slice(0, MAX_AUDIO_CACHE_KEYS);
+
+        return Object.fromEntries(normalizedEntries) as Record<string, AudioVersion[]>;
+    }, []);
+
+    const rememberPreviewBuffer = useCallback((cacheKey: string, buffer: AudioBuffer) => {
+        previewCacheRef.current[cacheKey] = buffer;
+        const keys = Object.keys(previewCacheRef.current);
+        if (keys.length > MAX_PREVIEW_CACHE_ITEMS) {
+            delete previewCacheRef.current[keys[0]];
+        }
     }, []);
 
     const stopTimer = useCallback(() => {
@@ -216,7 +261,8 @@ export function useAudioPlayer({ selectedVoice, playbackSpeed, language, storyTa
 
             setAudioCache(prev => {
                 const currentList = prev[uniqueKey] || [];
-                return { ...prev, [uniqueKey]: [newVersion, ...currentList] };
+                const next = { ...prev, [uniqueKey]: [newVersion, ...currentList] };
+                return normalizeAudioCache(next);
             });
 
             await playAudioData(finalBase64Audio, newVersion.id, newVersion.speed);
@@ -227,35 +273,46 @@ export function useAudioPlayer({ selectedVoice, playbackSpeed, language, storyTa
             setAudioLoadingKey(null);
             setAudioChunkStatus('');
         }
-    }, [selectedVoice, playbackSpeed, playAudioData]);
+    }, [selectedVoice, playbackSpeed, playAudioData, getAudioContext, normalizeAudioCache]);
 
     const handlePlayVersion = useCallback(async (version: AudioVersion) => {
         const isCurrentlyPlaying = audioPlayingId === version.id;
         if (isCurrentlyPlaying) {
             if (sourceNodeRef.current && audioContextRef.current) {
                 const elapsed = (audioContextRef.current.currentTime - audioStartTime) * (version.speed || 1);
-                const newOffset = audioOffset + elapsed;
+                const newOffset = Math.min((version.duration || Number.MAX_SAFE_INTEGER), audioOffset + elapsed);
                 sourceNodeRef.current.onended = null;
                 sourceNodeRef.current.stop();
+                stopTimer();
                 setAudioOffset(newOffset);
+                setCurrentTime(newOffset);
                 setAudioPlayingId(null);
             }
             return;
         }
-        await playAudioData(version.data, version.id, version.speed, audioOffset);
-    }, [audioPlayingId, audioStartTime, audioOffset, playAudioData]);
+        await playAudioData(version.data, version.id, version.speed, 0);
+    }, [audioPlayingId, audioStartTime, audioOffset, playAudioData, stopTimer]);
 
     const handleDeleteVersion = useCallback((uniqueKey: string, versionId: string) => {
         setAudioCache(prev => {
             const currentList = prev[uniqueKey] || [];
-            return { ...prev, [uniqueKey]: currentList.filter(v => v.id !== versionId) };
+            const filtered = currentList.filter(v => v.id !== versionId);
+            const next = { ...prev };
+            if (filtered.length > 0) {
+                next[uniqueKey] = filtered;
+            } else {
+                delete next[uniqueKey];
+            }
+            return normalizeAudioCache(next);
         });
         if (audioPlayingId === versionId) {
             if (sourceNodeRef.current) sourceNodeRef.current.stop();
+            stopTimer();
             setAudioPlayingId(null);
             setAudioOffset(0);
+            setCurrentTime(0);
         }
-    }, [audioPlayingId]);
+    }, [audioPlayingId, normalizeAudioCache, stopTimer]);
 
     const handleDownloadAudioVersion = useCallback((version: AudioVersion, index: number, prefix: string) => {
         try {
@@ -297,8 +354,18 @@ export function useAudioPlayer({ selectedVoice, playbackSpeed, language, storyTa
             if (windowSelection) textToPlay = windowSelection;
         }
         if (!textToPlay) {
-            const isVietnamese = language === 'Vietnamese' || storyTargetLanguage === 'Vietnamese';
-            textToPlay = isVietnamese ? "Xin chào, đây là bản nghe thử giọng đọc." : "Hello, this is a voice sample.";
+            const selectedPreviewText = VOICE_PREVIEW_TEXTS[selectedVoice];
+            if (selectedPreviewText) {
+                textToPlay = selectedPreviewText;
+            } else {
+                const isEnglishVoice = selectedVoice.startsWith('en-');
+                const isVietnameseContext = language === 'Vietnamese' || storyTargetLanguage === 'Vietnamese';
+                textToPlay = isEnglishVoice
+                    ? 'Hello, this is a quick voice preview for your project.'
+                    : (isVietnameseContext
+                        ? 'Xin chào, đây là bản nghe thử giọng đọc cho dự án của bạn.'
+                        : 'Hello, this is a quick voice preview for your project.');
+            }
         }
 
         const cacheKey = `${selectedVoice}-${textToPlay}`;
@@ -311,12 +378,12 @@ export function useAudioPlayer({ selectedVoice, playbackSpeed, language, storyTa
                 const cachedBase64 = await AudioStorageService.getAudio(cacheKey);
                 if (cachedBase64) {
                     audioBuffer = await ctx.decodeAudioData(base64ToArrayBuffer(cachedBase64).slice(0));
-                    previewCacheRef.current[cacheKey] = audioBuffer;
+                    rememberPreviewBuffer(cacheKey, audioBuffer);
                 } else {
                     setIsPreviewingVoice(true);
                     const base64Audio = await generateSpeechEdge(textToPlay, selectedVoice, playbackSpeed);
                     audioBuffer = await ctx.decodeAudioData(base64ToArrayBuffer(base64Audio).slice(0));
-                    previewCacheRef.current[cacheKey] = audioBuffer;
+                    rememberPreviewBuffer(cacheKey, audioBuffer);
                     await AudioStorageService.saveAudio(cacheKey, base64Audio);
                     setIsPreviewingVoice(false);
                 }
@@ -333,7 +400,20 @@ export function useAudioPlayer({ selectedVoice, playbackSpeed, language, storyTa
             console.error(err);
             setIsPreviewingVoice(false); setIsPreviewPlaying(false);
         }
-    }, [isPreviewPlaying, isPreviewingVoice, selectedVoice, playbackSpeed, language, storyTargetLanguage, getAudioContext]);
+    }, [
+        isPreviewPlaying,
+        isPreviewingVoice,
+        selectedVoice,
+        playbackSpeed,
+        language,
+        storyTargetLanguage,
+        getAudioContext,
+        rememberPreviewBuffer
+    ]);
+
+    const setNormalizedAudioCache = useCallback((cache: Record<string, AudioVersion[]>) => {
+        setAudioCache(normalizeAudioCache(cache));
+    }, [normalizeAudioCache]);
 
     return {
         // State
@@ -349,7 +429,7 @@ export function useAudioPlayer({ selectedVoice, playbackSpeed, language, storyTa
         // Setters needed by ScriptWriter
         setAudioPlayingId,
         setAudioOffset,
-        setAudioCache,
+        setAudioCache: setNormalizedAudioCache,
         // Actions
         handleGenerateAudio,
         handlePlayVersion,

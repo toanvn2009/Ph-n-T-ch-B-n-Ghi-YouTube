@@ -16,7 +16,6 @@ async function testVoice(voice: string) {
 }
 
 async function main() {
-  await testVoice("en-US-DavisNeural");
   await testVoice("en-US-SteffanNeural");
   await testVoice("en-US-ChristopherNeural");
   await testVoice("en-US-EricNeural");

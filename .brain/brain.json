@@ -66,8 +66,8 @@
             "known_bug": "Prompt gửi Gemini chỉ dùng style + tone, KHÔNG dùng plotTwist, characterArchetype, focus, targetAudience, pacing. File: services/geminiService.ts dòng 203-206."
         },
         {
-            "name": "AI Voice Generation (TTS) - Edge TTS Edition",
-            "description": "Chuyển sang Edge TTS (miễn phí). Hỗ trợ danh sách giọng chọn lọc: 2 giọng thuần Việt (Hoài My, Nam Minh), 4 giọng nam Podcast tiếng Anh (Guy, Steffan, Christopher, Eric) và 3 giọng Multilingual ổn định. Tốc độ điều chỉnh linh hoạt (0.5x - 2.0x) với các nấc tinh tế 0.9x và 0.95x. Giao diện Player chuyên nghiệp với Seek/Progress Bar và cơ chế Fallback tự động."
+            "name": "AI Voice Generation (TTS) - Edge TTS Resilience Edition",
+            "description": "Chuyển sang Edge TTS (miễn phí). Hệ thống đạt độ tin cậy cao nhờ: 1. Retry logic (3 lần) khi Microsoft server lỗi NoAudioReceived. 2. Voice validation (resolveVoiceId) tự động chuyển sang fallback an toàn nếu nhận voice ID không hợp lệ (như voice Gemini). 3. Logging lỗi file-based (tts_error.txt) để debug nhanh."
         },
         {
             "name": "Multi-language Translation",
@@ -91,7 +91,8 @@
         "Tạo 3 tiêu đề chuẩn SEO cho mỗi phân tích.",
         "Giọng đọc AI phải giữ được sự nhất quán (Consistency) trong suốt kịch bản.",
         "Ước tính 140 từ/phút cho độ dài kịch bản.",
-        "SEO meta tags bằng tiếng Việt, lang=vi"
+        "SEO meta tags bằng tiếng Việt, lang=vi",
+        "Cơ chế Fallback TTS phải bảo toàn ngôn ngữ (không để giọng Anh bị nhảy về giọng Việt)."
     ],
     "knowledge_items": {
         "patterns": [
@@ -106,8 +107,8 @@
             "tsconfig useDefineForClassFields: false — dùng cho decorator compatibility nhưng KHÔNG ảnh hưởng class component nếu có @types/react.",
             "Tailwind CSS v4: dùng @import 'tailwindcss' thay vì @tailwind directives.",
             "generateScript prompt THIẾU 5/8 config params (plotTwist, characterArchetype, focus, targetAudience, pacing) — cần fix.",
-            "Khi dùng 9router với gemini-cli, luôn đảm bảo phiên bản 9router >= 0.3.58 để không bị lỗi 502 fetch failed (reset after 30s) do MITM loop.",
-            "Multilingual voices (Andrew, Brian, Emma...) có thể không ổn định tùy thời điểm. Cần cơ chế Fallback về giọng Native (Hoài My) để đảm bảo không lỗi UI.",
+            "Khi dùng 9router với gemini-cli, sử dụng OPENAI_API_KEY chính thức (v0.3.58+) để tránh lỗi 502/401. Cổng mặc định cho proxy là 20128 (config qua Vite proxy /v1).",
+            "Voice multilingual cần kiểm tra bằng gọi thật tới `/api/tts` trước khi đưa vào UI. Nếu `fallbackApplied=true` và `resolvedVoice=vi-VN-HoaiMyNeural` thì xem như voice không đạt.",
             "Lỗi 'Port 3000 is in use': Thường do process Vite cũ chưa kill hẳn. Cần kill PID thủ công trước khi npm start để tránh conflict cổng với Backend (3001)."
         ],
         "conventions": [

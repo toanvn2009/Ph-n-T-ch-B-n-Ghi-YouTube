@@ -1,23 +1,15 @@
 {
-    "updated_at": "2026-03-28T23:55:00+07:00",
+    "updated_at": "2026-04-07T22:12:00+07:00",
     "working_on": {
-        "feature": "Optimizing TTS Voices & Startup UX",
-        "task": "Completed. Optimized English Podcast voices, added natural speed steps, consolidated npm start.",
-        "status": "active",
+        "feature": "Infrastructure & TTS Resilience",
+        "task": "Fix 500 Internal Server Error in TTS Backend, Configure 9router API keys, and enhance frontend error reporting.",
+        "status": "completed",
         "files": [
-            "components/ScriptWriter.tsx",
-            "components/ErrorBoundary.tsx",
-            "services/geminiService.ts",
-            "constants.ts",
-            "hooks/useAudioPlayer.ts",
-            "utils/audioUtils.ts",
-            "index.html",
-            "index.css",
-            "vite.config.ts",
-            "App.tsx",
-            "index.tsx"
+            "server/tts.ts",
+            "services/edgeTtsService.ts",
+            ".env.local"
         ],
-        "notes": "Refactored ScriptWriter (1040→500 lines), added ErrorBoundary, beforeunload, SEO, Tailwind via Vite. Found critical bug: generateScript prompt ignores 5/8 config params."
+        "notes": "Backend TTS hiện đã cực kỳ ổn định với retry logic (3 lần) và voice validation (chống 'Kore' crash). Đã cấu hình OPENAI_API_KEY chính xác cho 9router."
     },
     "pending_tasks": [
         {
@@ -26,27 +18,34 @@
             "notes": "File: services/geminiService.ts lines 203-206. Currently only sends style and tone."
         },
         {
-            "task": "H3: Audio memory optimization — store base64 data in IndexedDB instead of state",
+            "task": "Migrate heavy audio payload from React state to IndexedDB end-to-end",
+            "priority": "high",
+            "notes": "audioStorageService.ts exists; need full integration path for reading/writing audio versions."
+        },
+        {
+            "task": "Optimize bundle size warning (>500k) via code-splitting/manual chunks",
             "priority": "medium",
-            "notes": "audioStorageService.ts exists but not integrated with useAudioPlayer hook"
-        },
-        {
-            "task": "Add preset templates for common script configurations",
-            "priority": "low",
-            "notes": "E.g. 'YouTube Shorts hài hước', 'Video review chuyên sâu', 'Phim ngắn kịch tính'"
-        },
-        {
-            "task": "Add custom prompt/system instruction field for user",
-            "priority": "low",
-            "notes": "Let users add custom instructions before script generation"
-        },
-        {
-            "task": "V2: Test dev server on browser",
-            "priority": "medium",
-            "notes": "Build passes, dev server running, needs manual browser testing"
+            "notes": "Vite build still warns on large chunk; prioritize splitting heavy script/audio modules."
         }
     ],
     "recent_changes": [
+        {
+            "timestamp": "2026-04-07T21:50:00+07:00",
+            "type": "infrastructure",
+            "description": "Cập nhật .env.local: Bổ sung OPENAI_API_KEY (openclaw), OPENAI_BASE_URL (/v1) và OPENAI_MODEL (combo-tw4) để ổn định kết nối qua 9router.",
+            "files": [
+                ".env.local"
+            ]
+        },
+        {
+            "timestamp": "2026-04-07T22:10:00+07:00",
+            "type": "fix",
+            "description": "Nâng cấp Backend TTS Resilience: Thêm retry logic (3 lần) cho lỗi NoAudioReceived, thêm resolveVoiceId để validate/fallback voice không hợp lệ (như Kore), và thêm logging lỗi ra tts_error.txt.",
+            "files": [
+                "server/tts.ts",
+                "services/edgeTtsService.ts"
+            ]
+        },
         {
             "timestamp": "2026-02-13T23:00:00+07:00",
             "type": "refactor",
@@ -150,6 +149,28 @@
                 "server/tts.ts",
                 "package.json"
             ]
+        },
+        {
+            "timestamp": "2026-03-30T22:40:00+07:00",
+            "type": "optimization",
+            "description": "Triển khai gói ổn định ưu tiên cao: chống quota localStorage, giới hạn cache audio trong useAudioPlayer, bổ sung scripts test/smoke và làm sạch voice list.",
+            "files": [
+                "App.tsx",
+                "hooks/useAudioPlayer.ts",
+                "server/tts.ts",
+                "constants.ts",
+                "package.json"
+            ]
+        },
+        {
+            "timestamp": "2026-03-31T00:15:00+07:00",
+            "type": "optimization",
+            "description": "Tối ưu trải nghiệm TTS: Gắn tag mục đích [Learning/Podcast...], cá nhân hóa câu nghe thử theo từng giọng, và nâng cấp fallback locale-aware cho backend.",
+            "files": [
+                "server/tts.ts",
+                "constants.ts",
+                "hooks/useAudioPlayer.ts"
+            ]
         }
     ],
     "errors_encountered": [
@@ -166,6 +187,11 @@
         {
             "error": "Conflict cổng 3000 khi khởi động Vite, dẫn đến port bị đẩy lên 3001 trùng với Backend.",
             "solution": "Tìm PIDs chiếm dụng cổng 3000 bằng netstat và kill bằng taskkill trước khi restart server.",
+            "resolved": true
+        },
+        {
+            "error": "Nhiều voice multilingual hiển thị trong UI nhưng thực tế fallback ngầm về Hoài My nên nghe bị trùng giọng.",
+            "solution": "Tạo script test gọi trực tiếp `/api/tts`, kiểm tra `fallbackApplied` + `resolvedVoice`, sau đó loại voice không đạt khỏi backend/frontend.",
             "resolved": true
         }
     ],
@@ -201,6 +227,10 @@
         {
             "decision": "Áp dụng cơ chế Fallback về giọng Hoài My",
             "reason": "Đảm bảo tính sẵn sàng cao (High Availability) cho tính năng TTS, tránh treo UI khi AI voice bên thứ 3 lỗi."
+        },
+        {
+            "decision": "Chỉ giữ voice multilingual đã pass test thực tế trong danh sách chính",
+            "reason": "Tránh trường hợp người dùng chọn voice nhưng backend fallback ngầm về Hoài My gây trùng giọng và hiểu nhầm chất lượng."
         }
     ]
 }

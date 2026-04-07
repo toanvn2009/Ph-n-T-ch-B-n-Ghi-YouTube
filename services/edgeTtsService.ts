@@ -35,7 +35,8 @@ export async function generateSpeechEdge(
 
   if (!response.ok) {
     const error = await response.json().catch(() => ({ error: "Lỗi server" }));
-    throw new Error(error.error || `TTS Server lỗi: ${response.status}`);
+    const hint = error.hint ? ` (${error.hint})` : "";
+    throw new Error((error.error || `TTS Server lỗi: ${response.status}`) + hint);
   }
 
   const data = await response.json();

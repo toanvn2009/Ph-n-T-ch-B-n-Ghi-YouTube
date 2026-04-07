@@ -45,15 +45,24 @@ const App: React.FC = () => {
   const [isHistoryOpen, setIsHistoryOpen] = useState<boolean>(false);
   const [isCurrentAnalysisSaved, setIsCurrentAnalysisSaved] = useState<boolean>(false);
 
+  const HISTORY_STORAGE_KEY = 'yt_analyzer_history';
+  const MAX_HISTORY_ITEMS = 20;
+
   // Load history from localStorage on mount
   useEffect(() => {
-    const saved = localStorage.getItem('yt_analyzer_history');
-    if (saved) {
-      try {
-        setSavedAnalyses(JSON.parse(saved));
-      } catch (e) {
-        console.error("Failed to parse history", e);
+    const saved = localStorage.getItem(HISTORY_STORAGE_KEY);
+    if (!saved) return;
+
+    try {
+      const parsed = JSON.parse(saved);
+      if (!Array.isArray(parsed)) {
+        setSavedAnalyses([]);
+        return;
       }
+      setSavedAnalyses(parsed.slice(0, MAX_HISTORY_ITEMS));
+    } catch (e) {
+      console.error("Failed to parse history", e);
+      setSavedAnalyses([]);
     }
   }, []);
 
@@ -69,9 +78,30 @@ const App: React.FC = () => {
     return () => window.removeEventListener('beforeunload', handleBeforeUnload);
   }, [result, isCurrentAnalysisSaved]);
 
-  const saveToStorage = (items: SavedAnalysis[]) => {
-    localStorage.setItem('yt_analyzer_history', JSON.stringify(items));
-    setSavedAnalyses(items);
+  const saveToStorage = (items: SavedAnalysis[]): boolean => {
+    const normalizedItems = items.slice(0, MAX_HISTORY_ITEMS);
+
+    try {
+      localStorage.setItem(HISTORY_STORAGE_KEY, JSON.stringify(normalizedItems));
+      setSavedAnalyses(normalizedItems);
+      return true;
+    } catch (error) {
+      console.warn('LocalStorage quota exceeded, trimming history...', error);
+
+      // Fallback strategy: progressively trim history until save succeeds.
+      for (let keep = Math.min(normalizedItems.length - 1, 10); keep >= 1; keep--) {
+        try {
+          const reduced = normalizedItems.slice(0, keep);
+          localStorage.setItem(HISTORY_STORAGE_KEY, JSON.stringify(reduced));
+          setSavedAnalyses(reduced);
+          return true;
+        } catch {
+          // continue trimming
+        }
+      }
+
+      return false;
+    }
   };
 
   const handleAnalyze = useCallback(async () => {
@@ -147,8 +177,13 @@ const App: React.FC = () => {
     };
 
     const updated = [newSave, ...savedAnalyses];
-    saveToStorage(updated);
-    setIsCurrentAnalysisSaved(true);
+    const savedSuccessfully = saveToStorage(updated);
+    if (savedSuccessfully) {
+      setIsCurrentAnalysisSaved(true);
+    } else {
+      setError('Không đủ dung lượng lưu lịch sử. Hãy xóa bớt các mục cũ trong History.');
+      setIsCurrentAnalysisSaved(false);
+    }
   }, [result, transcript, fileData, inputMode, translatedResult, targetLanguage, savedAnalyses]);
 
   const handleDeleteSaved = useCallback((id: string) => {
