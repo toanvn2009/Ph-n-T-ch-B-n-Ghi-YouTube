@@ -2,6 +2,7 @@ import express from "express";
 import cors from "cors";
 import fs from "fs";
 import { Communicate } from "edge-tts-universal";
+import { VIETNAMESE_VOICES, ENGLISH_VOICES, VOICES } from "../constants";
 
 const app = express();
 const PORT = 3001;
@@ -9,32 +10,9 @@ const PORT = 3001;
 app.use(cors());
 app.use(express.json({ limit: "10mb" }));
 
-// ─── Danh sách giọng Việt Nam (Native + Multilingual) ───
-const VIETNAMESE_VOICES = [
-  // Native Vietnamese
-  { value: "vi-VN-HoaiMyNeural", label: "Hoài My (Nữ, Dịu dàng)", gender: "Female", locale: "vi-VN" },
-  { value: "vi-VN-NamMinhNeural", label: "Nam Minh (Nam, Trầm ấm)", gender: "Male", locale: "vi-VN" },
-  // Multilingual ổn định với tiếng Việt (đã test OK)
-  { value: "en-US-AndrewMultilingualNeural", label: "Andrew (Nam, Tự tin) [Multilingual OK]", gender: "Male", locale: "vi-VN" },
-  { value: "en-US-BrianMultilingualNeural", label: "Brian (Nam, Điềm đạm) [Multilingual OK]", gender: "Male", locale: "vi-VN" },
-  { value: "en-US-EmmaMultilingualNeural", label: "Emma (Nữ, Biểu cảm) [Multilingual OK]", gender: "Female", locale: "vi-VN" },
-  { value: "en-US-AvaMultilingualNeural", label: "Ava (Nữ, Tự nhiên) [Multilingual OK]", gender: "Female", locale: "vi-VN" },
-];
-
-const ENGLISH_VOICES = [
-  { value: "en-US-AriaNeural", label: "Aria (Nữ, News) [News]", gender: "Female", locale: "en-US" },
-  { value: "en-US-GuyNeural", label: "Guy (Nam, Storytelling) [YouTube][News]", gender: "Male", locale: "en-US" },
-  { value: "en-US-JennyNeural", label: "Jenny (Nữ, US) [Learning][YouTube]", gender: "Female", locale: "en-US" },
-  { value: "en-US-SteffanNeural", label: "Steffan (Nam, Podcast) [Podcast]", gender: "Male", locale: "en-US" },
-  { value: "en-US-ChristopherNeural", label: "Christopher (Nam, Professional)", gender: "Male", locale: "en-US" },
-  { value: "en-US-EricNeural", label: "Eric (Nam, Modern)", gender: "Male", locale: "en-US" },
-  { value: "en-GB-RyanNeural", label: "Ryan (Nam, UK) [Podcast]", gender: "Male", locale: "en-GB" },
-  { value: "en-GB-LibbyNeural", label: "Libby (Nữ, UK) [Podcast]", gender: "Female", locale: "en-GB" },
-  { value: "en-GB-SoniaNeural", label: "Sonia (Nữ, UK) [Learning]", gender: "Female", locale: "en-GB" },
-];
-
-const ALL_VOICES = [...VIETNAMESE_VOICES, ...ENGLISH_VOICES];
-const VALID_VOICE_IDS = new Set(ALL_VOICES.map((v) => v.value));
+// ─── Voice data từ constants.ts (Single Source of Truth) ───
+const ALL_VOICES = VOICES;
+const VALID_VOICE_IDS = new Set<string>(ALL_VOICES.map((v) => v.value));
 
 const DEFAULT_FALLBACK_VOICE = "vi-VN-HoaiMyNeural";
 const EN_US_FALLBACK_VOICE = "en-US-GuyNeural";
@@ -55,21 +33,18 @@ function getFallbackVoice(requestedVoice: string): string {
 }
 
 /**
- * Kiểm tra voice ID có hợp lệ trong Edge TTS không.
- * Nếu không hợp lệ (ví dụ "Kore" là Gemini voice), trả về fallback ngay.
+ * Validate voice ID — chặn voice không thuộc Edge TTS (ví dụ Gemini "Kore").
  */
 function resolveVoiceId(voice: string): { voice: string; wasInvalid: boolean } {
   if (VALID_VOICE_IDS.has(voice)) {
     return { voice, wasInvalid: false };
   }
-  // Voice không nằm trong danh sách Edge TTS → dùng fallback
   console.warn(`[TTS] Voice '${voice}' không hợp lệ cho Edge TTS, chuyển sang fallback.`);
   return { voice: getFallbackVoice(voice), wasInvalid: true };
 }
 
 /**
- * Gọi Edge TTS với retry logic.
- * Microsoft TTS đôi khi trả "NoAudioReceived" do server tạm lỗi.
+ * Gọi Edge TTS với retry logic (3 lần, delay tăng dần).
  */
 async function synthesizeWithRetry(text: string, voice: string, rate: string): Promise<string> {
   let lastError: Error | null = null;
@@ -112,33 +87,22 @@ async function synthesizeWithRetry(text: string, voice: string, rate: string): P
   throw lastError || new Error("TTS failed after max retries");
 }
 
-// ─── GET /api/tts/voices — Lấy danh sách giọng ───
+// ─── GET /api/tts/voices ───
 app.get("/api/tts/voices", (_req, res) => {
   res.json({ voices: ALL_VOICES });
 });
 
-// ─── GET /api/tts/health — Kiểm tra sức khỏe Edge TTS ───
+// ─── GET /api/tts/health ───
 app.get("/api/tts/health", async (_req, res) => {
   try {
-    const testText = "Test.";
-    const audio = await synthesizeWithRetry(testText, DEFAULT_FALLBACK_VOICE, "+0%");
-    res.json({
-      status: "ok",
-      voice: DEFAULT_FALLBACK_VOICE,
-      audioSize: audio.length,
-      timestamp: new Date().toISOString(),
-    });
+    const audio = await synthesizeWithRetry("Test.", DEFAULT_FALLBACK_VOICE, "+0%");
+    res.json({ status: "ok", voice: DEFAULT_FALLBACK_VOICE, audioSize: audio.length, timestamp: new Date().toISOString() });
   } catch (error: any) {
-    res.status(503).json({
-      status: "error",
-      message: error.message,
-      hint: "Microsoft Edge TTS server có thể đang tạm lỗi. Thử lại sau vài phút.",
-      timestamp: new Date().toISOString(),
-    });
+    res.status(503).json({ status: "error", message: error.message, hint: "Microsoft Edge TTS server có thể đang tạm lỗi.", timestamp: new Date().toISOString() });
   }
 });
 
-// ─── POST /api/tts — Tạo audio từ text ───
+// ─── POST /api/tts ───
 app.post("/api/tts", async (req, res) => {
   const { text, voice: rawVoice = DEFAULT_FALLBACK_VOICE, rate = "+0%" } = req.body;
 
@@ -148,8 +112,6 @@ app.post("/api/tts", async (req, res) => {
   }
 
   const cleanText = text.trim();
-
-  // Bước 1: Validate voice ID (chặn voice Gemini như "Kore", "Puck"...)
   const { voice: validatedVoice, wasInvalid } = resolveVoiceId(rawVoice);
 
   try {
@@ -160,10 +122,8 @@ app.post("/api/tts", async (req, res) => {
     try {
       audio = await synthesizeWithRetry(cleanText, validatedVoice, rate);
     } catch (primaryError: any) {
-      // Voice chính (hoặc đã validate) vẫn lỗi → thử fallback locale-aware
       const fallbackVoice = getFallbackVoice(validatedVoice);
 
-      // Tránh retry cùng voice
       if (fallbackVoice !== validatedVoice) {
         console.warn(`[TTS] Voice '${validatedVoice}' failed, fallback to '${fallbackVoice}'`, primaryError?.message);
         resolvedVoice = fallbackVoice;
@@ -172,7 +132,6 @@ app.post("/api/tts", async (req, res) => {
         try {
           audio = await synthesizeWithRetry(cleanText, fallbackVoice, rate);
         } catch (fallbackError: any) {
-          // Fallback cũng lỗi → Microsoft TTS server đang sập
           throw new Error(
             `Cả giọng chính (${validatedVoice}) và dự phòng (${fallbackVoice}) đều lỗi. ` +
             `Microsoft Edge TTS server có thể đang gián đoạn. Chi tiết: ${fallbackError.message}`
@@ -183,17 +142,10 @@ app.post("/api/tts", async (req, res) => {
       }
     }
 
-    res.json({
-      audio,
-      mimeType: "audio/mp3",
-      voice: rawVoice,
-      resolvedVoice,
-      fallbackApplied,
-      textLength: cleanText.length,
-    });
+    res.json({ audio, mimeType: "audio/mp3", voice: rawVoice, resolvedVoice, fallbackApplied, textLength: cleanText.length });
   } catch (error: any) {
     const timestamp = new Date().toISOString();
-    const logMessage = `[${timestamp}] Error: ${error.message}\nStack: ${error.stack}\nRequest Body: voice=${rawVoice}, textLength=${cleanText.length}\n---\n`;
+    const logMessage = `[${timestamp}] Error: ${error.message}\nVoice: ${rawVoice}, TextLength: ${cleanText.length}\n---\n`;
     fs.appendFileSync("tts_error.txt", logMessage);
 
     console.error("[TTS] ❌ Final Error:", error.message);
@@ -208,6 +160,6 @@ app.post("/api/tts", async (req, res) => {
 // ─── Start server ───
 app.listen(PORT, () => {
   console.log(`🎙️  Edge TTS Backend đang chạy tại http://localhost:${PORT}`);
-  console.log(`📋 Voices: ${ALL_VOICES.length} giọng sẵn sàng`);
+  console.log(`📋 Voices: ${ALL_VOICES.length} giọng sẵn sàng (imported from constants.ts)`);
   console.log(`📡 Endpoint: POST /api/tts | GET /api/tts/voices | GET /api/tts/health`);
 });

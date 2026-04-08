@@ -68,26 +68,31 @@ export const PACING_OPTIONS = [
     { value: 'Dynamic', label: 'Biến đổi (Lúc nhanh lúc chậm)' },
 ] as const;
 
-export const VOICES = [
+// ── Voice Groups (shared with backend server/tts.ts) ──
+export const VIETNAMESE_VOICES = [
     // Native Vietnamese
-    { value: 'vi-VN-HoaiMyNeural', label: 'Hoài My (Nữ, Dịu dàng)' },
-    { value: 'vi-VN-NamMinhNeural', label: 'Nam Minh (Nam, Trầm ấm)' },
+    { value: 'vi-VN-HoaiMyNeural', label: 'Hoài My (Nữ, Dịu dàng)', gender: 'Female', locale: 'vi-VN' },
+    { value: 'vi-VN-NamMinhNeural', label: 'Nam Minh (Nam, Trầm ấm)', gender: 'Male', locale: 'vi-VN' },
     // Multilingual ổn định với tiếng Việt (đã test OK)
-    { value: 'en-US-AndrewMultilingualNeural', label: 'Andrew (Nam, Tự tin) [ML OK]' },
-    { value: 'en-US-BrianMultilingualNeural', label: 'Brian (Nam, Điềm đạm) [ML OK]' },
-    { value: 'en-US-EmmaMultilingualNeural', label: 'Emma (Nữ, Biểu cảm) [ML OK]' },
-    { value: 'en-US-AvaMultilingualNeural', label: 'Ava (Nữ, Tự nhiên) [ML OK]' },
-    // English (Learning / YouTube / Podcast / News)
-    { value: 'en-US-AriaNeural', label: 'Aria (Nữ, Đọc tin tức - EN) [News]' },
-    { value: 'en-US-GuyNeural', label: 'Guy (Nam, Kể chuyện lôi cuốn - EN) [YouTube][News]' },
-    { value: 'en-US-JennyNeural', label: 'Jenny (Nữ, Học tiếng Anh - EN) [Learning][YouTube]' },
-    { value: 'en-US-SteffanNeural', label: 'Steffan (Nam, Tâm tình Podcast - EN) [Podcast]' },
-    { value: 'en-US-ChristopherNeural', label: 'Christopher (Nam, Rõ ràng chuyên nghiệp - EN)' },
-    { value: 'en-US-EricNeural', label: 'Eric (Nam, Hiện đại năng động - EN)' },
-    { value: 'en-GB-RyanNeural', label: 'Ryan (Nam, Podcast UK - EN) [Podcast]' },
-    { value: 'en-GB-LibbyNeural', label: 'Libby (Nữ, Podcast UK - EN) [Podcast]' },
-    { value: 'en-GB-SoniaNeural', label: 'Sonia (Nữ, Học tiếng Anh UK - EN) [Learning]' },
+    { value: 'en-US-AndrewMultilingualNeural', label: 'Andrew (Nam, Tự tin) [ML OK]', gender: 'Male', locale: 'vi-VN' },
+    { value: 'en-US-BrianMultilingualNeural', label: 'Brian (Nam, Điềm đạm) [ML OK]', gender: 'Male', locale: 'vi-VN' },
+    { value: 'en-US-EmmaMultilingualNeural', label: 'Emma (Nữ, Biểu cảm) [ML OK]', gender: 'Female', locale: 'vi-VN' },
+    { value: 'en-US-AvaMultilingualNeural', label: 'Ava (Nữ, Tự nhiên) [ML OK]', gender: 'Female', locale: 'vi-VN' },
 ] as const;
+
+export const ENGLISH_VOICES = [
+    { value: 'en-US-AriaNeural', label: 'Aria (Nữ, Đọc tin tức - EN) [News]', gender: 'Female', locale: 'en-US' },
+    { value: 'en-US-GuyNeural', label: 'Guy (Nam, Kể chuyện lôi cuốn - EN) [YouTube][News]', gender: 'Male', locale: 'en-US' },
+    { value: 'en-US-JennyNeural', label: 'Jenny (Nữ, Học tiếng Anh - EN) [Learning][YouTube]', gender: 'Female', locale: 'en-US' },
+    { value: 'en-US-SteffanNeural', label: 'Steffan (Nam, Tâm tình Podcast - EN) [Podcast]', gender: 'Male', locale: 'en-US' },
+    { value: 'en-US-ChristopherNeural', label: 'Christopher (Nam, Rõ ràng chuyên nghiệp - EN)', gender: 'Male', locale: 'en-US' },
+    { value: 'en-US-EricNeural', label: 'Eric (Nam, Hiện đại năng động - EN)', gender: 'Male', locale: 'en-US' },
+    { value: 'en-GB-RyanNeural', label: 'Ryan (Nam, Podcast UK - EN) [Podcast]', gender: 'Male', locale: 'en-GB' },
+    { value: 'en-GB-LibbyNeural', label: 'Libby (Nữ, Podcast UK - EN) [Podcast]', gender: 'Female', locale: 'en-GB' },
+    { value: 'en-GB-SoniaNeural', label: 'Sonia (Nữ, Học tiếng Anh UK - EN) [Learning]', gender: 'Female', locale: 'en-GB' },
+] as const;
+
+export const VOICES = [...VIETNAMESE_VOICES, ...ENGLISH_VOICES] as const;
 
 export const SPEED_OPTIONS = [
     { value: 0.9, label: '0.9x - Chậm' },

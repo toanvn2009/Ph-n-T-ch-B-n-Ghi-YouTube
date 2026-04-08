@@ -48,7 +48,7 @@ export const ScriptWriter: React.FC<ScriptWriterProps> = ({ input, onBack, onExp
     const [focus, setFocus] = useState<string>('Balanced');
     const [targetAudience, setTargetAudience] = useState<string>('General');
     const [pacing, setPacing] = useState<string>('Moderate');
-    const [selectedVoice, setSelectedVoice] = useState<string>('Kore');
+    const [selectedVoice, setSelectedVoice] = useState<string>('vi-VN-HoaiMyNeural');
     const [playbackSpeed, setPlaybackSpeed] = useState<number>(1);
 
     const [scriptParts, setScriptParts] = useState<string[] | null>(null);
@@ -130,11 +130,11 @@ export const ScriptWriter: React.FC<ScriptWriterProps> = ({ input, onBack, onExp
         const modifiedResult: AnalysisResult = { ...result, keyPoints: editableKeyPoints };
 
         try {
-            const generatedData = await generateScript(
-                modifiedResult, duration, numberOfParts, language,
-                selectedStyle, selectedTone, creativityLevel, plotTwist,
-                characterArchetype, focus, targetAudience, pacing
-            );
+            const generatedData = await generateScript({
+                translatedResult: modifiedResult, totalDuration: duration, numberOfParts, language,
+                style: selectedStyle, tone: selectedTone, creativity: creativityLevel, plotTwist,
+                characterArchetype, focus, targetAudience, pacing,
+            });
             setScriptParts(generatedData.parts);
             setMetadata(generatedData.metadata);
         } catch (err) {
