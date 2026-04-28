@@ -1,8 +1,8 @@
 
 import React, { useState, useCallback, useEffect } from 'react';
 import { generateScript, translateStory } from '../services/geminiService';
-import type { AnalysisResult, ScriptData, ScriptMetadata, AudioVersion } from '../types';
-import { BackIcon, KeyPointIcon, ScriptIcon, TranslateIcon, YoutubeIcon, DownloadIcon, PlayIcon, PauseIcon, SpeakerIcon, TrashIcon, PlusIcon, XIcon } from './icons';
+import type { AnalysisResult, ScriptData, ScriptMetadata } from '../types';
+import { BackIcon, KeyPointIcon, ScriptIcon, TranslateIcon, YoutubeIcon, DownloadIcon, PlayIcon, PauseIcon, SpeakerIcon, PlusIcon, XIcon } from './icons';
 import { LoadingSpinner } from './LoadingSpinner';
 import { ErrorDisplay } from './ErrorDisplay';
 import { CopyButton } from './CopyButton';
@@ -13,27 +13,32 @@ import {
     PAGINATION_THRESHOLD
 } from '../constants';
 import { useAudioPlayer } from '../hooks/useAudioPlayer';
+import { downloadText } from '../utils/downloadUtils';
+import { AudioVersionList } from './AudioVersionList';
 
 interface ScriptWriterProps {
     input: {
         result: AnalysisResult;
         language: string;
+        analysisId?: string;
         initialData?: {
             scriptData?: ScriptData | null;
             translatedScriptData?: ScriptData | null;
-            audioCache?: Record<string, AudioVersion[]>;
         }
     };
     onBack: (data?: {
         scriptData: ScriptData | null,
         translatedScriptData: ScriptData | null,
-        audioCache: Record<string, AudioVersion[]>
     }) => void;
     onExport: (scriptData: ScriptData | null, translatedScriptData: ScriptData | null) => void;
+    onScriptUpdate?: (data: {
+        scriptData: ScriptData | null,
+        translatedScriptData: ScriptData | null,
+    }) => void;
 }
 
-export const ScriptWriter: React.FC<ScriptWriterProps> = ({ input, onBack, onExport }) => {
-    const { result, language, initialData } = input;
+export const ScriptWriter: React.FC<ScriptWriterProps> = ({ input, onBack, onExport, onScriptUpdate }) => {
+    const { result, language, analysisId, initialData } = input;
     const [duration, setDuration] = useState<number>(5);
     const [numberOfParts, setNumberOfParts] = useState<number>(1);
 
@@ -70,8 +75,8 @@ export const ScriptWriter: React.FC<ScriptWriterProps> = ({ input, onBack, onExp
     const [activeTab, setActiveTab] = useState<'original' | 'translated'>('original');
     const [currentPage, setCurrentPage] = useState<number>(0);
 
-    // Use extracted audio player hook
-    const audio = useAudioPlayer({ selectedVoice, playbackSpeed, language, storyTargetLanguage });
+    // Use extracted audio player hook (audioCache hydrated from IndexedDB via analysisId)
+    const audio = useAudioPlayer({ selectedVoice, playbackSpeed, language, storyTargetLanguage, analysisId });
 
     useEffect(() => {
         if (initialData?.scriptData) {
@@ -83,10 +88,18 @@ export const ScriptWriter: React.FC<ScriptWriterProps> = ({ input, onBack, onExp
             setTranslatedMetadata(initialData.translatedScriptData.metadata);
             setActiveTab('translated');
         }
-        if (initialData?.audioCache) {
-            audio.setAudioCache(initialData.audioCache);
-        }
     }, [initialData]);
+
+    // Sync script data up to parent so F5/reload doesn't lose the generated story
+    useEffect(() => {
+        if (!onScriptUpdate) return;
+        onScriptUpdate({
+            scriptData: scriptParts && metadata ? { parts: scriptParts, metadata } : null,
+            translatedScriptData: translatedScriptParts && translatedMetadata
+                ? { parts: translatedScriptParts, metadata: translatedMetadata }
+                : null,
+        });
+    }, [scriptParts, metadata, translatedScriptParts, translatedMetadata, onScriptUpdate]);
 
     useEffect(() => {
         setEditableKeyPoints(result.keyPoints);
@@ -99,10 +112,16 @@ export const ScriptWriter: React.FC<ScriptWriterProps> = ({ input, onBack, onExp
         if (result.suggestedParts) setNumberOfParts(result.suggestedParts);
     }, [result]);
 
+    // Build the {scriptData, translatedScriptData} snapshot used by Back/Export/onScriptUpdate.
+    const buildSnapshot = () => ({
+        scriptData: scriptParts && metadata ? { parts: scriptParts, metadata } : null,
+        translatedScriptData: translatedScriptParts && translatedMetadata
+            ? { parts: translatedScriptParts, metadata: translatedMetadata }
+            : null,
+    });
+
     const handleBackClick = () => {
-        const currentScriptData = scriptParts && metadata ? { parts: scriptParts, metadata } : null;
-        const currentTranslatedScriptData = translatedScriptParts && translatedMetadata ? { parts: translatedScriptParts, metadata: translatedMetadata } : null;
-        onBack({ scriptData: currentScriptData, translatedScriptData: currentTranslatedScriptData, audioCache: audio.audioCache });
+        onBack(buildSnapshot());
     };
 
     const handleAddKeyPoint = () => {
@@ -165,39 +184,45 @@ export const ScriptWriter: React.FC<ScriptWriterProps> = ({ input, onBack, onExp
         }
     }, [scriptParts, metadata, storyTargetLanguage]);
 
-    const handleScriptPartChange = (index: number, value: string) => {
-        if (scriptParts) {
-            const newParts = [...scriptParts];
-            newParts[index] = value;
-            setScriptParts(newParts);
-        }
+    // ── Generic part/metadata mutators (merged from previously duplicated original/translated pairs) ──
+    const updatePartAt = (
+        parts: string[] | null,
+        setParts: React.Dispatch<React.SetStateAction<string[] | null>>,
+        index: number,
+        value: string
+    ) => {
+        if (!parts) return;
+        const next = [...parts];
+        next[index] = value;
+        setParts(next);
     };
 
-    const handleTranslatedPartChange = (index: number, value: string) => {
-        if (translatedScriptParts) {
-            const newParts = [...translatedScriptParts];
-            newParts[index] = value;
-            setTranslatedScriptParts(newParts);
-        }
+    const updateMetadataField = (
+        meta: ScriptMetadata | null,
+        setMeta: React.Dispatch<React.SetStateAction<ScriptMetadata | null>>,
+        field: keyof ScriptMetadata,
+        value: string,
+        index?: number
+    ) => {
+        if (!meta) return;
+        const next = { ...meta };
+        if (field === 'titles' && typeof index === 'number') next.titles[index] = value;
+        else if (field === 'hashtags' && typeof index === 'number') next.hashtags[index] = value;
+        else if (field === 'description') next.description = value;
+        setMeta(next);
     };
 
-    const handleMetadataChange = (field: keyof ScriptMetadata, value: any, index?: number) => {
-        if (!metadata) return;
-        const newMetadata = { ...metadata };
-        if (field === 'titles' && typeof index === 'number') newMetadata.titles[index] = value;
-        else if (field === 'hashtags' && typeof index === 'number') newMetadata.hashtags[index] = value;
-        else if (field === 'description') newMetadata.description = value;
-        setMetadata(newMetadata);
-    };
+    const handleScriptPartChange = (index: number, value: string) =>
+        updatePartAt(scriptParts, setScriptParts, index, value);
 
-    const handleTranslatedMetadataChange = (field: keyof ScriptMetadata, value: any, index?: number) => {
-        if (!translatedMetadata) return;
-        const newMetadata = { ...translatedMetadata };
-        if (field === 'titles' && typeof index === 'number') newMetadata.titles[index] = value;
-        else if (field === 'hashtags' && typeof index === 'number') newMetadata.hashtags[index] = value;
-        else if (field === 'description') newMetadata.description = value;
-        setTranslatedMetadata(newMetadata);
-    };
+    const handleTranslatedPartChange = (index: number, value: string) =>
+        updatePartAt(translatedScriptParts, setTranslatedScriptParts, index, value);
+
+    const handleMetadataChange = (field: keyof ScriptMetadata, value: string, index?: number) =>
+        updateMetadataField(metadata, setMetadata, field, value, index);
+
+    const handleTranslatedMetadataChange = (field: keyof ScriptMetadata, value: string, index?: number) =>
+        updateMetadataField(translatedMetadata, setTranslatedMetadata, field, value, index);
 
     const calculateTotalWords = (parts: string[] | null) => {
         if (!parts) return 0;
@@ -205,19 +230,12 @@ export const ScriptWriter: React.FC<ScriptWriterProps> = ({ input, onBack, onExp
     };
 
     const handleExportClick = () => {
-        const currentScriptData = scriptParts && metadata ? { parts: scriptParts, metadata } : null;
-        const currentTranslatedScriptData = translatedScriptParts && translatedMetadata ? { parts: translatedScriptParts, metadata: translatedMetadata } : null;
-        onExport(currentScriptData, currentTranslatedScriptData);
+        const snap = buildSnapshot();
+        onExport(snap.scriptData, snap.translatedScriptData);
     };
 
     const handleDownloadText = (parts: string[], title: string = 'script') => {
-        const content = parts.join('\n\n');
-        const blob = new Blob([content], { type: 'text/plain' });
-        const url = URL.createObjectURL(blob);
-        const a = document.createElement('a');
-        a.href = url; a.download = `${title}.txt`;
-        document.body.appendChild(a); a.click();
-        document.body.removeChild(a); URL.revokeObjectURL(url);
+        downloadText(parts.join('\n\n'), `${title}.txt`);
     };
 
     const formatTime = (seconds: number) => {
@@ -229,85 +247,24 @@ export const ScriptWriter: React.FC<ScriptWriterProps> = ({ input, onBack, onExp
     const durationPerPart = (duration / numberOfParts).toFixed(1);
     const estimatedWordsPerPart = Math.round((duration / numberOfParts) * 140);
 
-    // Render helper for audio version list (used in both original and translated tabs)
-    const renderAudioVersionList = (uniqueKey: string, index: number, prefix: string, accentColor: string) => {
-        const versions = audio.audioCache[uniqueKey];
-        if (!versions || versions.length === 0) return null;
-        return (
-            <div className="bg-slate-800/80 rounded-xl p-4 gap-3 border border-slate-700/50 shadow-inner">
-                <div className="flex items-center justify-between mb-3">
-                    <h4 className="text-xs font-bold text-slate-400 uppercase tracking-wider flex items-center gap-2">
-                        <span className="w-1.5 h-1.5 rounded-full bg-indigo-500 animate-pulse"></span>
-                        Bản thu âm sẳn có
-                    </h4>
-                    <span className="text-[10px] text-slate-500 font-medium bg-slate-900/50 px-2 py-0.5 rounded-full border border-slate-700/50">
-                        {versions.length} phiên bản
-                    </span>
-                </div>
-                
-                <div className="space-y-3">
-                    {versions.map((version) => {
-                        const isPlaying = audio.audioPlayingId === version.id;
-                        return (
-                            <div key={version.id} className={`flex flex-col gap-2 p-3 rounded-lg transition-all duration-300 border ${isPlaying ? `bg-slate-700/40 border-${accentColor}-500/50 shadow-lg ring-1 ring-${accentColor}-500/20` : 'bg-slate-900/30 border-slate-700/50 hover:bg-slate-700/30 hover:border-slate-600'}`}>
-                                <div className="flex items-center justify-between">
-                                    <div className="flex items-center gap-3">
-                                        <button 
-                                            onClick={() => isPlaying ? audio.handleStop() : audio.handlePlayVersion(version)} 
-                                            className={`p-2.5 rounded-full shadow-lg transition-all duration-300 transform hover:scale-105 active:scale-95 ${isPlaying ? `bg-${accentColor}-500 text-white shadow-${accentColor}-500/20` : 'bg-slate-800 text-slate-300 hover:text-white hover:bg-slate-700'}`}
-                                        >
-                                            {isPlaying ? <PauseIcon /> : <PlayIcon />}
-                                        </button>
-                                        <div className="flex flex-col">
-                                            <div className="flex items-center gap-2">
-                                                <span className="text-sm font-bold text-slate-200">{version.voiceLabel}</span>
-                                                <span className="text-[10px] px-1.5 py-0.5 rounded bg-slate-800 text-slate-400 font-mono border border-slate-700">
-                                                    {version.speed || 1}x
-                                                </span>
-                                            </div>
-                                            <span className="text-[10px] text-slate-500 font-medium">
-                                                {new Date(version.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })} • {version.duration ? formatTime(version.duration) : '--:--'}
-                                            </span>
-                                        </div>
-                                    </div>
-                                    
-                                    <div className="flex items-center gap-1">
-                                        <button onClick={() => audio.handleDownloadAudioVersion(version, index, prefix)} className="p-2 text-slate-400 hover:text-green-400 hover:bg-green-400/10 rounded-lg transition-all" title="Tải xuống"><DownloadIcon /></button>
-                                        <button onClick={() => audio.handleDeleteVersion(uniqueKey, version.id)} className="p-2 text-slate-400 hover:text-red-400 hover:bg-red-400/10 rounded-lg transition-all" title="Xóa"><TrashIcon /></button>
-                                    </div>
-                                </div>
-
-                                {isPlaying && version.duration && (
-                                    <div className="mt-1 px-1">
-                                        <div className="flex justify-between items-center mb-1.5">
-                                            <span className="text-[10px] font-mono text-indigo-400 font-bold">{formatTime(audio.currentTime)}</span>
-                                            <span className="text-[10px] font-mono text-slate-500">{formatTime(version.duration)}</span>
-                                        </div>
-                                        <div 
-                                            className="h-1.5 w-full bg-slate-800 rounded-full cursor-pointer relative overflow-hidden group border border-slate-700/50"
-                                            onClick={(e) => {
-                                                const rect = e.currentTarget.getBoundingClientRect();
-                                                const x = e.clientX - rect.left;
-                                                const clickedPos = (x / rect.width) * version.duration!;
-                                                audio.handleSeek(version, clickedPos);
-                                            }}
-                                        >
-                                            <div 
-                                                className={`absolute left-0 top-0 h-full bg-gradient-to-r from-${accentColor}-600 to-${accentColor}-400 rounded-full transition-all duration-100`}
-                                                style={{ width: `${(audio.currentTime / version.duration) * 100}%` }}
-                                            />
-                                            {/* Hover indicator current pos */}
-                                            <div className="absolute top-0 bottom-0 w-0.5 bg-white opacity-0 group-hover:opacity-50 transition-opacity" style={{ transform: 'translateX(-50%)' }}></div>
-                                        </div>
-                                    </div>
-                                )}
-                            </div>
-                        );
-                    })}
-                </div>
-            </div>
-        );
-    };
+    // Render helper: now thin wrapper around the extracted AudioVersionList component
+    const renderAudioVersionList = (uniqueKey: string, index: number, prefix: string, accentColor: string) => (
+        <AudioVersionList
+            versions={audio.audioCache[uniqueKey]}
+            uniqueKey={uniqueKey}
+            index={index}
+            prefix={prefix}
+            accentColor={accentColor}
+            audioPlayingId={audio.audioPlayingId}
+            currentTime={audio.currentTime}
+            onPlay={audio.handlePlayVersion}
+            onStop={audio.handleStop}
+            onDelete={audio.handleDeleteVersion}
+            onDownload={audio.handleDownloadAudioVersion}
+            onSeek={audio.handleSeek}
+            formatTime={formatTime}
+        />
+    );
 
     // Render helper for script part card (used in both original and translated tabs)
     const renderScriptPartCard = (
@@ -324,7 +281,7 @@ export const ScriptWriter: React.FC<ScriptWriterProps> = ({ input, onBack, onExp
                     <h3 className={`text-${accentColor}-300 font-bold uppercase text-xs tracking-wider flex items-center gap-2`}><span className={`bg-${accentColor}-500/20 w-6 h-6 flex items-center justify-center rounded-full text-${accentColor}-400`}>{index + 1}</span>Phần {index + 1}</h3>
                     {prefix === 'original' && <span className="text-[10px] text-slate-500 uppercase tracking-widest">Dự kiến: {estimatedWordsPerPart} từ</span>}
                 </div>
-                <textarea value={part} onChange={(e) => onPartChange(index, e.target.value)} className="w-full min-h-[300px] p-4 bg-slate-800 border border-slate-700 rounded-lg text-slate-200 font-sans text-lg leading-relaxed focus:outline-none resize-y shadow-inner" placeholder={prefix === 'original' ? "Nội dung câu chuyện..." : "Nội dung bản dịch..."} />
+                <textarea value={part} onChange={(e) => onPartChange(index, e.target.value)} className="w-full min-h-[500px] p-4 bg-slate-800 border border-slate-700 rounded-lg text-slate-200 font-sans text-lg leading-relaxed focus:outline-none resize-y shadow-inner" placeholder={prefix === 'original' ? "Nội dung câu chuyện..." : "Nội dung bản dịch..."} />
                 <div className="mt-4 flex flex-col gap-3">
                     <div className="flex justify-end gap-2 items-center">
                         <div className="text-xs text-slate-500 mr-2 flex flex-col items-end">
@@ -402,7 +359,7 @@ export const ScriptWriter: React.FC<ScriptWriterProps> = ({ input, onBack, onExp
 
     return (
         <div className="min-h-screen bg-slate-900 text-slate-200 font-sans flex flex-col items-center p-4 sm:p-6 lg:p-8 animate-fade-in">
-            <div className="w-full max-w-5xl mx-auto">
+            <div className="w-full max-w-6xl mx-auto">
                 <header className="relative text-center mb-8">
                     <button onClick={handleBackClick} className="absolute left-0 top-1/2 -translate-y-1/2 flex items-center gap-2 px-4 py-2 bg-slate-800 hover:bg-slate-700 rounded-lg transition-colors" aria-label="Quay lại">
                         <BackIcon /> <span className="hidden sm:inline">Quay Lại</span>

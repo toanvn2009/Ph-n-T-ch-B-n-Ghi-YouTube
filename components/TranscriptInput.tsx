@@ -93,7 +93,7 @@ export const TranscriptInput: React.FC<TranscriptInputProps> = ({
       </div>
 
       {/* Content Area */}
-      <div className="bg-slate-800/50 rounded-xl border border-slate-700 p-6 min-h-[300px] flex flex-col relative">
+      <div className="bg-slate-800/50 rounded-xl border border-slate-700 p-6 min-h-[500px] flex flex-col relative">
         
         {mode === 'text' && (
             <div className="relative group">

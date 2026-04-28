@@ -62,8 +62,7 @@
         },
         {
             "name": "Script Writer (Người Kể Chuyện AI)",
-            "description": "Sáng tác kịch bản với 8 tham số cấu hình: phong cách (11), giọng điệu (9), hình tượng nhân vật (7), trọng tâm (5), khán giả (6), nhịp độ (4), plot twist (5), mức sáng tạo (3). Chia thành 1-6 phần với slider thời lượng 1-30 phút. Chỉnh sửa ý chính trước khi tạo.",
-            "known_bug": "Prompt gửi Gemini chỉ dùng style + tone, KHÔNG dùng plotTwist, characterArchetype, focus, targetAudience, pacing. File: services/geminiService.ts dòng 203-206."
+            "description": "Sáng tác kịch bản với 8 tham số cấu hình: phong cách (11), giọng điệu (9), hình tượng nhân vật (7), trọng tâm (5), khán giả (6), nhịp độ (4), plot twist (5), mức sáng tạo (3). Chia thành 1-6 phần với slider thời lượng 1-30 phút. Chỉnh sửa ý chính trước khi tạo. Prompt gửi Gemini đã forward đủ cả 8 params (xem services/geminiService.ts: generateScript dòng 199-231 và generateScriptMetadata dòng 131-143)."
         },
         {
             "name": "AI Voice Generation (TTS) - Edge TTS Resilience Edition",
@@ -106,7 +105,7 @@
             "React 19 KHÔNG ship .d.ts types — phải cài @types/react riêng.",
             "tsconfig useDefineForClassFields: false — dùng cho decorator compatibility nhưng KHÔNG ảnh hưởng class component nếu có @types/react.",
             "Tailwind CSS v4: dùng @import 'tailwindcss' thay vì @tailwind directives.",
-            "generateScript prompt THIẾU 5/8 config params (plotTwist, characterArchetype, focus, targetAudience, pacing) — cần fix.",
+            "generateScript prompt ĐÃ forward đủ cả 8 config params (style, tone, plotTwist, characterArchetype, focus, targetAudience, pacing, creativity→temperature). KHÔNG còn là known bug.",
             "Khi dùng 9router với gemini-cli, sử dụng OPENAI_API_KEY chính thức (v0.3.58+) để tránh lỗi 502/401. Cổng mặc định cho proxy là 20128 (config qua Vite proxy /v1).",
             "Voice multilingual cần kiểm tra bằng gọi thật tới `/api/tts` trước khi đưa vào UI. Nếu `fallbackApplied=true` và `resolvedVoice=vi-VN-HoaiMyNeural` thì xem như voice không đạt.",
             "Lỗi 'Port 3000 is in use': Thường do process Vite cũ chưa kill hẳn. Cần kill PID thủ công trước khi npm start để tránh conflict cổng với Backend (3001)."

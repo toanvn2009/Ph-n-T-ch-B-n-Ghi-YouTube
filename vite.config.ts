@@ -30,6 +30,18 @@ export default defineConfig(({ mode }) => {
       },
     },
     plugins: [react(), tailwindcss()],
+    build: {
+      chunkSizeWarningLimit: 800,
+      rollupOptions: {
+        output: {
+          manualChunks: {
+            'react-vendor': ['react', 'react-dom'],
+            'gemini': ['@google/genai'],
+            'openai-router': ['openai'],
+          },
+        },
+      },
+    },
     define: {
       'process.env.API_KEY': JSON.stringify(env.GEMINI_API_KEY),
       'process.env.GEMINI_API_KEY': JSON.stringify(env.GEMINI_API_KEY),

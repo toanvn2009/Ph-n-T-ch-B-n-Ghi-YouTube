@@ -41,10 +41,12 @@ async function withRetry<T>(fn: () => Promise<T>, retries = 3, delay = 1500): Pr
     const retriable = status === 429 || status === 502 || status === 503;
 
     if (retriable && retries > 0) {
+      console.warn('[router] retry', { status, retriesLeft: retries, nextDelayMs: delay });
       await sleep(delay);
       return withRetry(fn, retries - 1, Math.round(delay * 1.5));
     }
 
+    console.error('[router] failed', { status, message: error?.message });
     throw error;
   }
 }
@@ -72,6 +74,8 @@ export async function generateRouterText(params: {
   model?: string;
 }): Promise<string> {
   const client = getRouterClient();
+  const model = params.model || DEFAULT_MODEL;
+  const t0 = performance.now();
 
   const messages: Array<{ role: "system" | "user"; content: string }> = [];
   if (params.systemInstruction) {
@@ -79,16 +83,24 @@ export async function generateRouterText(params: {
   }
   messages.push({ role: "user", content: params.prompt });
 
+  console.info('[router] -> text', { model, promptLen: params.prompt.length, temperature: params.temperature ?? 0.3 });
+
   const response = await withRetry(() =>
     client.chat.completions.create({
-      model: params.model || DEFAULT_MODEL,
+      model,
       messages,
       temperature: params.temperature ?? 0.3,
       max_tokens: params.maxTokens ?? 8192,
     })
   );
 
-  return response.choices[0]?.message?.content?.trim() || "";
+  const content = response.choices[0]?.message?.content?.trim() || "";
+  console.info('[router] <- text', {
+    ms: Math.round(performance.now() - t0),
+    chars: content.length,
+    finishReason: response.choices[0]?.finish_reason,
+  });
+  return content;
 }
 
 export async function generateRouterJson<T>(params: {
@@ -106,6 +118,7 @@ export async function generateRouterJson<T>(params: {
   try {
     return JSON.parse(extractJson(raw)) as T;
   } catch (error) {
+    console.error('[router] JSON parse failed', { rawPreview: raw.slice(0, 200) });
     throw new Error("Phản hồi từ 9router không đúng định dạng JSON.");
   }
 }

@@ -2,7 +2,8 @@ import { useState, useRef, useEffect, useCallback } from 'react';
 import { generateSpeechEdge } from '../services/edgeTtsService';
 import { AudioStorageService } from '../services/audioStorageService';
 import { splitTextForTTS } from '../utils/audioUtils';
-import { VOICES } from '../constants';
+import { downloadBlob } from '../utils/downloadUtils';
+import { VOICES, VOICE_PREVIEW_TEXTS } from '../constants';
 import type { AudioVersion } from '../types';
 
 // Helper: base64 string → ArrayBuffer
@@ -26,35 +27,19 @@ interface UseAudioPlayerOptions {
     playbackSpeed: number;
     language: string;
     storyTargetLanguage: string;
+    analysisId?: string;
 }
 
 const MAX_AUDIO_VERSIONS_PER_KEY = 3;
 const MAX_AUDIO_CACHE_KEYS = 24;
 const MAX_PREVIEW_CACHE_ITEMS = 20;
 
-const VOICE_PREVIEW_TEXTS: Record<string, string> = {
-    'vi-VN-HoaiMyNeural': 'Xin chào, tôi là Hoài My. Đây là câu nghe thử dịu dàng cho kênh của bạn.',
-    'vi-VN-NamMinhNeural': 'Xin chào, tôi là Nam Minh. Đây là câu nghe thử trầm ấm và rõ ràng.',
-    'en-US-AndrewMultilingualNeural': 'Xin chào, tôi là Andrew. Đây là bản nghe thử tiếng Việt tự nhiên và mạch lạc.',
-    'en-US-BrianMultilingualNeural': 'Xin chào, tôi là Brian. Đây là câu nghe thử với giọng nam điềm đạm.',
-    'en-US-EmmaMultilingualNeural': 'Xin chào, tôi là Emma. Đây là bản đọc thử giàu cảm xúc bằng tiếng Việt.',
-    'en-US-AvaMultilingualNeural': 'Xin chào, tôi là Ava. Đây là câu nghe thử nhẹ nhàng, tự nhiên và dễ nghe.',
-    'en-US-AriaNeural': 'Good evening, I am Aria. Here is a clear and confident news-style preview.',
-    'en-US-GuyNeural': 'Hi there, I am Guy. This is a dynamic storytelling preview for your YouTube video.',
-    'en-US-JennyNeural': 'Hello, I am Jenny. This short preview is perfect for English learning practice.',
-    'en-US-SteffanNeural': 'Hello, I am Steffan. Here is a warm and conversational podcast preview.',
-    'en-US-ChristopherNeural': 'Hello, I am Christopher. This is a professional and articulate voice sample.',
-    'en-US-EricNeural': 'Hi, I am Eric. This preview has a modern and upbeat delivery style.',
-    'en-GB-RyanNeural': 'Hello, I am Ryan. This is a smooth British podcast voice preview.',
-    'en-GB-LibbyNeural': 'Hello, I am Libby. This is a friendly British podcast-style sample.',
-    'en-GB-SoniaNeural': 'Hello, I am Sonia. This preview is clear and natural for English learners.'
-};
-
-export function useAudioPlayer({ selectedVoice, playbackSpeed, language, storyTargetLanguage }: UseAudioPlayerOptions) {
+export function useAudioPlayer({ selectedVoice, playbackSpeed, language, storyTargetLanguage, analysisId }: UseAudioPlayerOptions) {
     const [audioLoadingKey, setAudioLoadingKey] = useState<string | null>(null);
     const [audioChunkStatus, setAudioChunkStatus] = useState<string>('');
     const [audioPlayingId, setAudioPlayingId] = useState<string | null>(null);
     const [audioCache, setAudioCache] = useState<Record<string, AudioVersion[]>>({});
+    const hydratedRef = useRef<boolean>(false);
 
     const [isPreviewingVoice, setIsPreviewingVoice] = useState<boolean>(false);
     const [isPreviewPlaying, setIsPreviewPlaying] = useState<boolean>(false);
@@ -77,6 +62,33 @@ export function useAudioPlayer({ selectedVoice, playbackSpeed, language, storyTa
             if (audioContextRef.current) audioContextRef.current.close();
         };
     }, []);
+
+    // Hydrate audioCache from IndexedDB whenever analysisId changes
+    useEffect(() => {
+        let cancelled = false;
+        hydratedRef.current = false;
+
+        if (!analysisId) {
+            setAudioCache({});
+            hydratedRef.current = true;
+            return;
+        }
+
+        (async () => {
+            const stored = await AudioStorageService.loadScriptAudioCache(analysisId);
+            if (cancelled) return;
+            setAudioCache(stored || {});
+            hydratedRef.current = true;
+        })();
+
+        return () => { cancelled = true; };
+    }, [analysisId]);
+
+    // Persist audioCache to IndexedDB after hydration
+    useEffect(() => {
+        if (!analysisId || !hydratedRef.current) return;
+        AudioStorageService.saveScriptAudioCache(analysisId, audioCache);
+    }, [audioCache, analysisId]);
 
     // Sync playback speed to active source
     useEffect(() => {
@@ -319,11 +331,7 @@ export function useAudioPlayer({ selectedVoice, playbackSpeed, language, storyTa
             // Edge TTS trả MP3 → download trực tiếp
             const mp3Buffer = base64ToArrayBuffer(version.data);
             const blob = new Blob([mp3Buffer], { type: 'audio/mp3' });
-            const url = URL.createObjectURL(blob);
-            const a = document.createElement('a');
-            a.href = url; a.download = `audio-${prefix}-${index}-${version.voiceValue}.mp3`;
-            document.body.appendChild(a); a.click();
-            document.body.removeChild(a); URL.revokeObjectURL(url);
+            downloadBlob(blob, `audio-${prefix}-${index}-${version.voiceValue}.mp3`);
         } catch (err) {
             console.error("Error creating download", err);
             alert("Lỗi khi tải file âm thanh.");

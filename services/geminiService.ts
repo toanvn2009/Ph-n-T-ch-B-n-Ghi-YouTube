@@ -108,18 +108,25 @@ export const analyzeTranscript = async (input: ContentInput): Promise<AnalysisRe
 
 // ─── Translation ───
 export const translateResult = async (result: AnalysisResult, targetLanguage: string): Promise<AnalysisResult> => {
+  const t0 = performance.now();
+  console.info('[gemini] translateResult start', { targetLanguage, fromLang: result.language });
   const prompt = `Translate the following analysis to ${targetLanguage}.
 Description must be engaging story-like narration and must not start with 'This video...'.
 Preserve structure and return JSON using the same fields as input.
 
 Input JSON:\n${JSON.stringify(result)}`;
 
-  const translated = await generateRouterJson<Partial<AnalysisResult>>({
-    prompt,
-    temperature: 0.2,
-  });
-
-  return sanitizeAnalysisResult(translated);
+  try {
+    const translated = await generateRouterJson<Partial<AnalysisResult>>({
+      prompt,
+      temperature: 0.2,
+    });
+    console.info('[gemini] translateResult done', { ms: Math.round(performance.now() - t0) });
+    return sanitizeAnalysisResult(translated);
+  } catch (err) {
+    console.error('[gemini] translateResult error', { ms: Math.round(performance.now() - t0), err });
+    throw err;
+  }
 };
 
 // ─── Script Metadata (SEO) ───
@@ -169,6 +176,14 @@ const translateScriptMetadata = async (metadata: ScriptMetadata, targetLanguage:
 
 // ─── Script Generation ───
 export const generateScript = async (opts: ScriptGenerationOptions): Promise<GeneratedScriptResult> => {
+  const t0 = performance.now();
+  console.info('[gemini] generateScript start', {
+    parts: opts.numberOfParts,
+    durationMin: opts.totalDuration,
+    lang: opts.language,
+    style: opts.style,
+    creativity: opts.creativity,
+  });
   const {
     translatedResult,
     totalDuration,
@@ -239,11 +254,13 @@ ${partIndex > 1 ? `\nPrevious script context:\n${previousContext.slice(-1500)}` 
     parts.push(partText.trim());
     previousContext += `\n${partText.trim()}`;
 
+    console.info('[gemini] generateScript part done', { partIndex, words: partText.trim().split(/\s+/).length });
     if (partIndex < numberOfParts) {
       await delay(1000);
     }
   }
 
+  console.info('[gemini] generateScript done', { ms: Math.round(performance.now() - t0), totalParts: parts.length });
   return { parts, metadata };
 };
 

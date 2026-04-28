@@ -95,8 +95,8 @@ export const ENGLISH_VOICES = [
 export const VOICES = [...VIETNAMESE_VOICES, ...ENGLISH_VOICES] as const;
 
 export const SPEED_OPTIONS = [
-    { value: 0.9, label: '0.9x - Chậm' },
-    { value: 0.95, label: '0.95x - Hơi chậm' },
+    { value: 0.96, label: '0.96x - Chậm' },
+    { value: 0.98, label: '0.98x - Hơi chậm' },
     { value: 1, label: '1x - Bình thường' },
     { value: 1.05, label: '1.05x - Hơi nhanh' },
     { value: 1.1, label: '1.1x - Nhanh' },
@@ -104,6 +104,26 @@ export const SPEED_OPTIONS = [
 ] as const;
 
 export const PAGINATION_THRESHOLD = 4;
+
+// Per-voice sample sentences used by the "preview voice" button in ScriptWriter.
+// Moved out of useAudioPlayer to keep the hook lean.
+export const VOICE_PREVIEW_TEXTS: Record<string, string> = {
+    'vi-VN-HoaiMyNeural': 'Xin chào, tôi là Hoài My. Đây là câu nghe thử dịu dàng cho kênh của bạn.',
+    'vi-VN-NamMinhNeural': 'Xin chào, tôi là Nam Minh. Đây là câu nghe thử trầm ấm và rõ ràng.',
+    'en-US-AndrewMultilingualNeural': 'Xin chào, tôi là Andrew. Đây là bản nghe thử tiếng Việt tự nhiên và mạch lạc.',
+    'en-US-BrianMultilingualNeural': 'Xin chào, tôi là Brian. Đây là câu nghe thử với giọng nam điềm đạm.',
+    'en-US-EmmaMultilingualNeural': 'Xin chào, tôi là Emma. Đây là bản đọc thử giàu cảm xúc bằng tiếng Việt.',
+    'en-US-AvaMultilingualNeural': 'Xin chào, tôi là Ava. Đây là câu nghe thử nhẹ nhàng, tự nhiên và dễ nghe.',
+    'en-US-AriaNeural': 'Good evening, I am Aria. Here is a clear and confident news-style preview.',
+    'en-US-GuyNeural': 'Hi there, I am Guy. This is a dynamic storytelling preview for your YouTube video.',
+    'en-US-JennyNeural': 'Hello, I am Jenny. This short preview is perfect for English learning practice.',
+    'en-US-SteffanNeural': 'Hello, I am Steffan. Here is a warm and conversational podcast preview.',
+    'en-US-ChristopherNeural': 'Hello, I am Christopher. This is a professional and articulate voice sample.',
+    'en-US-EricNeural': 'Hi, I am Eric. This preview has a modern and upbeat delivery style.',
+    'en-GB-RyanNeural': 'Hello, I am Ryan. This is a smooth British podcast voice preview.',
+    'en-GB-LibbyNeural': 'Hello, I am Libby. This is a friendly British podcast-style sample.',
+    'en-GB-SoniaNeural': 'Hello, I am Sonia. This preview is clear and natural for English learners.',
+};
 
 // Derived label maps for ResultDisplay (eliminates duplicate definitions)
 export const STYLE_LABELS: Record<string, string> = Object.fromEntries(
