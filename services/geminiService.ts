@@ -1,6 +1,8 @@
 import { GoogleGenAI } from "@google/genai";
-import type { AnalysisResult, ScriptMetadata } from "../types";
+import type { AnalysisResult, ScriptMetadata, VideoSegmentation, VideoSegment, VideoShot } from "../types";
 import { generateRouterJson, generateRouterText, generateRouterJsonWithFile } from "./openaiRouterService";
+// Note: GoogleGenAI is kept imported in case future features need direct Gemini SDK access.
+// All current calls go through 9router (OpenAI-compatible) for unified routing.
 import {
   STYLES, TONES, TARGET_AUDIENCES, PACING_OPTIONS,
   ARCHETYPES, FOCUS_OPTIONS, PLOT_TWISTS,
@@ -37,6 +39,9 @@ function sanitizeAnalysisResult(raw: Partial<AnalysisResult>): AnalysisResult {
     suggestedVoice: raw.suggestedVoice || "vi-VN-HoaiMyNeural",
     suggestedDuration: Number(raw.suggestedDuration || 3),
     suggestedParts: Number(raw.suggestedParts || 3),
+    videoSegmentation: raw.videoSegmentation
+      ? sanitizeSegmentation(raw.videoSegmentation as Partial<VideoSegmentation>)
+      : undefined,
   };
 }
 
@@ -106,23 +111,145 @@ export const analyzeTranscript = async (input: ContentInput): Promise<AnalysisRe
   }
 };
 
+// ─── Video Deep Analysis (Segmentation + Shots) ───
+const SEGMENTATION_SYSTEM_INSTRUCTION = `Bạn là chuyên gia dựng phim, biên tập video và logging shot-by-shot.
+Khi nhận một file video, hãy quan sát toàn bộ video theo timeline và tạo shot list chi tiết như bảng dựng phim: chia thành các PHÂN ĐOẠN lớn, sau đó liệt kê mọi PHÂN CẢNH nhỏ bên trong.
+Ưu tiên độ phủ timeline và chi tiết thị giác/âm thanh; không tóm tắt kiểu nội dung chung.`;
+
+const SEGMENTATION_PROMPT = `Nhiệm vụ: Phân tích PHÂN CẢNH VIDEO thật chi tiết, bám sát video upload.
+
+Yêu cầu trả về JSON DUY NHẤT theo schema:
+{
+  "pacingNote": "Mô tả nhịp độ tổng thể + xác nhận đã quét theo lát 6-10 giây.",
+  "totalSegments": <số nguyên>,
+  "segments": [
+    {
+      "index": 1,
+      "title": "Tên ngắn gọn của phân đoạn (vd: 'Buổi sáng & Bữa sáng')",
+      "timeRange": "MM:SS - MM:SS",
+      "content": "Mô tả nội dung diễn ra trong phân đoạn, nêu rõ hành động/vật thể/bối cảnh chính.",
+      "mood": "Không khí của phân đoạn (vd: 'Thư thái, khởi đầu chậm rãi').",
+      "shots": [
+        {
+          "index": 1,
+          "timeRange": "MM:SS - MM:SS",
+          "description": "Mô tả cụ thể shot này: khung hình/camera, chủ thể, hành động, vật thể nổi bật, ánh sáng/màu sắc, âm thanh/lời thoại nếu có."
+        }
+      ]
+    }
+  ]
+}
+
+QUY TẮC BẮT BUỘC:
+- Toàn bộ text bằng tiếng Việt.
+- Phải quét video theo timeline từ đầu đến cuối; KHÔNG bỏ qua khoảng thời gian nào có hình ảnh/âm thanh mới.
+- Mỗi shot nên dài khoảng 6-10 giây; nếu trong 6-10 giây có chuyển cảnh/hành động mới thì tách shot nhỏ hơn.
+- Mỗi shot PHẢI có timeRange riêng và mô tả 1 câu cụ thể, khoảng 18-28 từ, đủ nhận diện cảnh.
+- Không gộp nhiều cảnh khác nhau vào một shot chỉ vì cùng bối cảnh.
+- Không dùng câu chung chung như "cảnh sinh hoạt", "nhân vật làm việc"; phải nói rõ đang thấy gì, ai/vật gì, làm gì, camera nhìn thế nào, âm thanh gì.
+- Số shot phải tỷ lệ với độ dài video: video 1 phút khoảng 6-10 shots, 3 phút khoảng 18-30 shots, 5 phút khoảng 30-50 shots.
+- Số lượng phân đoạn lớn thường 4-10, tùy nội dung; phân đoạn chỉ để nhóm shot, không được làm mất chi tiết.
+- timeRange dùng định dạng MM:SS, lấy từ timeline thực tế của video.
+- KHÔNG thêm bất kỳ text nào ngoài JSON.`;
+
+function sanitizeSegmentation(raw: Partial<VideoSegmentation>): VideoSegmentation {
+  const segments: VideoSegment[] = (raw.segments || []).map((s, i) => ({
+    index: Number(s?.index ?? i + 1),
+    title: String(s?.title ?? `Phân đoạn ${i + 1}`),
+    timeRange: String(s?.timeRange ?? ""),
+    content: String(s?.content ?? ""),
+    mood: String(s?.mood ?? ""),
+    shots: (s?.shots || []).map((sh: Partial<VideoShot>, j: number) => ({
+      index: Number(sh?.index ?? j + 1),
+      timeRange: sh?.timeRange ? String(sh.timeRange) : undefined,
+      description: String(sh?.description ?? ""),
+    })),
+  }));
+  return {
+    totalSegments: Number(raw.totalSegments ?? segments.length),
+    pacingNote: String(raw.pacingNote ?? ""),
+    segments,
+  };
+}
+
+export const analyzeVideoSegmentation = async (
+  file: { mimeType: string; data: string }
+): Promise<VideoSegmentation> => {
+  const t0 = performance.now();
+  console.info('[gemini] analyzeVideoSegmentation start', { mimeType: file.mimeType });
+  try {
+    const raw = await generateRouterJsonWithFile<Partial<VideoSegmentation>>({
+      systemInstruction: SEGMENTATION_SYSTEM_INSTRUCTION,
+      temperature: 0.2,
+      maxTokens: 16384,
+      prompt: SEGMENTATION_PROMPT,
+      file,
+    });
+    console.info('[gemini] analyzeVideoSegmentation done', {
+      ms: Math.round(performance.now() - t0),
+      segments: raw?.segments?.length,
+    });
+    return sanitizeSegmentation(raw);
+  } catch (error) {
+    console.error('[gemini] analyzeVideoSegmentation error', { ms: Math.round(performance.now() - t0), error });
+    throw new Error("Không thể phân tích phân cảnh video. Vui lòng thử lại.");
+  }
+};
+
 // ─── Translation ───
+const hasVietnameseDiacritics = (text: string) => /[àáạảãâầấậẩẫăằắặẳẵèéẹẻẽêềếệểễìíịỉĩòóọỏõôồốộổỗơờớợởỡùúụủũưừứựửữỳýỵỷỹđ]/i.test(text);
+
 export const translateResult = async (result: AnalysisResult, targetLanguage: string): Promise<AnalysisResult> => {
   const t0 = performance.now();
-  console.info('[gemini] translateResult start', { targetLanguage, fromLang: result.language });
-  const prompt = `Translate the following analysis to ${targetLanguage}.
+  console.info('[gemini] translateResult start', { targetLanguage, fromLang: result.language, hasSegmentation: !!result.videoSegmentation });
+  const prompt = `Translate the following analysis into ${targetLanguage}.
+
+STRICT LANGUAGE RULES:
+- Every human-readable text field in the output MUST be written in ${targetLanguage}.
+- Set the output field "language" exactly to "${targetLanguage}".
+- Do NOT keep Vietnamese text when targetLanguage is English, except proper names that should not be translated.
+- Do NOT summarize, rewrite into a new topic, or leave fields in the source language.
+
+FIELDS TO TRANSLATE:
+- topic
+- suggestedTitles[]
+- description
+- keyPoints[]
+- suggestedHashtags[]: translate meaning and format as short hashtag words in ${targetLanguage}
+- language
+
 Description must be engaging story-like narration and must not start with 'This video...'.
-Preserve structure and return JSON using the same fields as input.
+Preserve the same JSON structure and return JSON using the same fields as input.
+
+IMPORTANT: If the input contains a 'videoSegmentation' field, you MUST translate it as well:
+- Translate text fields: pacingNote, segments[].title, segments[].content, segments[].mood, segments[].shots[].description
+- KEEP UNCHANGED: totalSegments, segments[].index, segments[].timeRange, segments[].shots[].index, segments[].shots[].timeRange
+- Preserve the exact same array order and structure.
 
 Input JSON:\n${JSON.stringify(result)}`;
 
   try {
-    const translated = await generateRouterJson<Partial<AnalysisResult>>({
+    let translated = await generateRouterJson<Partial<AnalysisResult>>({
       prompt,
-      temperature: 0.2,
+      temperature: 0.1,
     });
-    console.info('[gemini] translateResult done', { ms: Math.round(performance.now() - t0) });
-    return sanitizeAnalysisResult(translated);
+    let sanitized = sanitizeAnalysisResult(translated);
+
+    if (targetLanguage === "English" && hasVietnameseDiacritics([
+      sanitized.topic,
+      ...sanitized.suggestedTitles,
+      sanitized.description,
+      ...sanitized.keyPoints,
+    ].join(" "))) {
+      translated = await generateRouterJson<Partial<AnalysisResult>>({
+        prompt: `${prompt}\n\nThe previous output incorrectly kept Vietnamese text. Return the same JSON again, but translate ALL human-readable text into natural English now.`,
+        temperature: 0,
+      });
+      sanitized = sanitizeAnalysisResult(translated);
+    }
+
+    console.info('[gemini] translateResult done', { ms: Math.round(performance.now() - t0), targetLanguage: sanitized.language });
+    return sanitized;
   } catch (err) {
     console.error('[gemini] translateResult error', { ms: Math.round(performance.now() - t0), err });
     throw err;

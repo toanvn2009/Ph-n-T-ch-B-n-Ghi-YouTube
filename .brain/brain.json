@@ -1,7 +1,8 @@
 {
     "meta": {
         "schema_version": "1.1.0",
-        "awf_version": "3.3.0"
+        "awf_version": "3.3.0",
+        "last_updated": "2026-05-01T10:45:00+07:00"
     },
     "project": {
         "name": "Youtube Content Architect (Phân Tích & Sáng Tác Kịch Bản YouTube)",
@@ -46,10 +47,10 @@
         },
         "modules": {
             "constants.ts": "Shared constants: STYLES, TONES, PLOT_TWISTS, ARCHETYPES, FOCUS_OPTIONS, TARGET_AUDIENCES, PACING_OPTIONS, VOICES, SPEED_OPTIONS + derived STYLE_LABELS/TONE_LABELS",
-            "types.ts": "TypeScript interfaces: ScriptMetadata, ScriptData, AudioVersion, AnalysisResult, SavedAnalysis",
+            "types.ts": "TypeScript interfaces: ScriptMetadata, ScriptData, AudioVersion, AnalysisResult, SavedAnalysis, VideoShot, VideoSegment, VideoSegmentation",
             "hooks/useAudioPlayer.ts": "Custom hook for TTS: AudioContext management, playback, preview, caching, chunk status",
             "utils/audioUtils.ts": "Audio utilities: base64 encode/decode, PCM→AudioBuffer, WAV header, text splitting for TTS",
-            "services/geminiService.ts": "Gemini API: analyzeTranscript, translateResult, generateScript, translateStory",
+            "services/geminiService.ts": "Gemini API (qua 9router OpenAI proxy): analyzeTranscript (text/file), analyzeVideoSegmentation (chia phân đoạn + shots ~8-10s từ video upload), translateResult, generateScript, translateStory",
             "services/edgeTtsService.ts": "Frontend service gọi /api/tts của backend, xử lý tốc độ (speed → rate)",
             "services/audioStorageService.ts": "IndexedDB wrapper for persisting audio blobs",
             "server/tts.ts": "Express backend (port 3001) cho Edge TTS, hỗ trợ cơ chế tự động Fallback"
@@ -67,6 +68,14 @@
         {
             "name": "AI Voice Generation (TTS) - Edge TTS Resilience Edition",
             "description": "Chuyển sang Edge TTS (miễn phí). Hệ thống đạt độ tin cậy cao nhờ: 1. Retry logic (3 lần) khi Microsoft server lỗi NoAudioReceived. 2. Voice validation (resolveVoiceId) tự động chuyển sang fallback an toàn nếu nhận voice ID không hợp lệ (như voice Gemini). 3. Logging lỗi file-based (tts_error.txt) để debug nhanh."
+        },
+        {
+            "name": "Video Segmentation Analysis (AI Studio-style)",
+            "description": "Sau khi phân tích SEO chính của video upload, user có thể bấm nút riêng để phân tích sâu phân cảnh: chia video thành các segment theo timeline (start-end seconds), mỗi segment có content/mood + danh sách shots chi tiết (~8-10s/shot với visual, audio, dialog). UI render emerald gradient với <details> collapsible. Copy button xuất plain text format đẹp có thứ tự, tiêu đề segment viết hoa toàn bộ. Manual trigger để tiết kiệm token (~50K/lần do gửi lại video base64)."
+        },
+        {
+            "name": "Video Segmentation Translation",
+            "description": "Khi bấm 'Dịch' (translateResult), nếu analysis có videoSegmentation thì AI dịch luôn text fields (title, content, mood, shots[].description) trong khi giữ nguyên index/timeRange/totalSegments."
         },
         {
             "name": "Multi-language Translation",
@@ -108,7 +117,13 @@
             "generateScript prompt ĐÃ forward đủ cả 8 config params (style, tone, plotTwist, characterArchetype, focus, targetAudience, pacing, creativity→temperature). KHÔNG còn là known bug.",
             "Khi dùng 9router với gemini-cli, sử dụng OPENAI_API_KEY chính thức (v0.3.58+) để tránh lỗi 502/401. Cổng mặc định cho proxy là 20128 (config qua Vite proxy /v1).",
             "Voice multilingual cần kiểm tra bằng gọi thật tới `/api/tts` trước khi đưa vào UI. Nếu `fallbackApplied=true` và `resolvedVoice=vi-VN-HoaiMyNeural` thì xem như voice không đạt.",
-            "Lỗi 'Port 3000 is in use': Thường do process Vite cũ chưa kill hẳn. Cần kill PID thủ công trước khi npm start để tránh conflict cổng với Backend (3001)."
+            "Lỗi 'Port 3000 is in use': Thường do process Vite cũ chưa kill hẳn. Cần kill PID thủ công trước khi npm start để tránh conflict cổng với Backend (3001).",
+            "9router (OpenAI Chat Completions protocol) KHÔNG support YouTube URL qua fileData.fileUri — đó là đặc quyền Gemini native SDK. Nếu cần phân tích từ link YouTube phải gọi @google/genai trực tiếp với GEMINI_API_KEY riêng. Hiện dự án CHỈ hỗ trợ text input + file upload (không có tab YouTube link).",
+            "analyzeVideoSegmentation tốn nhiều token (gửi lại toàn bộ video base64) → KHÔNG auto-run cùng analyzeTranscript, phải dùng nút trigger thủ công trong ResultDisplay.",
+            "Khi format text copy có thứ tự (segments/shots), dùng .toUpperCase() trong JS chứ KHÔNG chỉ dựa vào CSS uppercase — đảm bảo clipboard text thực sự là chữ hoa.",
+            "sanitizeAnalysisResult PHẢI preserve videoSegmentation qua sanitizeSegmentation — trước đây bị strip mất khi dịch vì field không được đưa vào return object.",
+            "translateResult prompt phải có rule translate videoSegmentation fields cụ thể vì AI mặc định sẽ skip nested object.",
+            "VideoSegmentation translation: chỉ dịch text fields (pacingNote, segments[].title, .content, .mood, .shots[].description), GIỮ NGUYÊN numeric/timestamp (totalSegments, index, timeRange)."
         ],
         "conventions": [
             "UI language: Vietnamese (tiếng Việt)",

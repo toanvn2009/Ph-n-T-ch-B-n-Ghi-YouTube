@@ -1,5 +1,5 @@
 import React, { useState, useCallback, useEffect, useMemo, Suspense, lazy } from 'react';
-import { analyzeTranscript, translateResult } from './services/geminiService';
+import { analyzeTranscript, translateResult, analyzeVideoSegmentation } from './services/geminiService';
 import { downloadJson } from './utils/downloadUtils';
 import { useAnalysisHistory } from './hooks/useAnalysisHistory';
 import { useWorkingState } from './hooks/useWorkingState';
@@ -44,6 +44,10 @@ const App: React.FC = () => {
   const [isTranslating, setIsTranslating] = useState<boolean>(false);
   const [translationError, setTranslationError] = useState<string | null>(null);
   const [targetLanguage, setTargetLanguage] = useState<string>('Vietnamese');
+
+  // Video segmentation (deep shot-list analysis)
+  const [isSegmenting, setIsSegmenting] = useState<boolean>(false);
+  const [segmentationError, setSegmentationError] = useState<string | null>(null);
 
   const [scriptWriterInput, setScriptWriterInput] = useState<ScriptWriterInputState | null>(null);
   // Stable session ID for current analysis — keys IndexedDB audio cache.
@@ -144,6 +148,31 @@ const App: React.FC = () => {
       setIsLoading(false);
     }
   }, [transcript, fileData, inputMode]);
+
+  const handleAnalyzeSegmentation = useCallback(async () => {
+    if (!fileData || !result) return;
+    const t0 = performance.now();
+    console.info('[SEGMENT] start', { fileName: fileData.name });
+    setIsSegmenting(true);
+    setSegmentationError(null);
+    try {
+      const segmentation = await analyzeVideoSegmentation({
+        mimeType: fileData.type,
+        data: fileData.data,
+      });
+      console.info('[SEGMENT] done', {
+        ms: Math.round(performance.now() - t0),
+        segments: segmentation.segments.length,
+      });
+      setResult(prev => prev ? { ...prev, videoSegmentation: segmentation } : prev);
+      setIsCurrentAnalysisSaved(false);
+    } catch (err: any) {
+      console.error('[SEGMENT] error', { ms: Math.round(performance.now() - t0), err });
+      setSegmentationError(err.message || 'Không thể phân tích phân cảnh video.');
+    } finally {
+      setIsSegmenting(false);
+    }
+  }, [fileData, result]);
 
   const handleTranslate = useCallback(async () => {
     if (!result) return;
@@ -351,7 +380,7 @@ const App: React.FC = () => {
 
   return (
     <div className="min-h-screen bg-slate-900 text-slate-200 font-sans flex flex-col items-center p-4 sm:p-6 lg:p-8">
-      <div className="w-full max-w-4xl mx-auto">
+      <div className="w-full max-w-5xl mx-auto">
         {view === 'main' ? (
           <>
             <Header onOpenHistory={() => setIsHistoryOpen(true)} onImport={handleImport} />
@@ -391,6 +420,10 @@ const App: React.FC = () => {
                     onSave={handleSaveAnalysis}
                     isSaved={isCurrentAnalysisSaved}
                     onExport={handleExport}
+                    canSegmentVideo={(inputMode === 'file' && !!fileData) || !!result.videoSegmentation}
+                    onAnalyzeSegmentation={handleAnalyzeSegmentation}
+                    isSegmenting={isSegmenting}
+                    segmentationError={segmentationError}
                   />
                 </div>
               )}

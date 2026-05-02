@@ -71,7 +71,7 @@ export const TranscriptInput: React.FC<TranscriptInputProps> = ({
   };
 
   return (
-    <div className="flex flex-col gap-6 w-full max-w-4xl mx-auto">
+    <div className="flex flex-col gap-6 w-full max-w-5xl mx-auto">
       {/* Tabs */}
       <div className="flex p-1 bg-slate-800 rounded-xl border border-slate-700">
         <button

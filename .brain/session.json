@@ -1,22 +1,16 @@
 {
-    "updated_at": "2026-04-07T22:12:00+07:00",
+    "updated_at": "2026-05-01T10:45:00+07:00",
     "working_on": {
-        "feature": "Infrastructure & TTS Resilience",
-        "task": "Fix 500 Internal Server Error in TTS Backend, Configure 9router API keys, and enhance frontend error reporting.",
+        "feature": "Video Segmentation Translation",
+        "task": "Khi bấm 'Dịch', AI dịch luôn text fields trong videoSegmentation (title, content, mood, shots[].description) trong khi giữ nguyên numeric/timestamp. sanitizeAnalysisResult phải gọi sanitizeSegmentation để preserve videoSegmentation khi normalize translated result.",
         "status": "completed",
         "files": [
-            "server/tts.ts",
-            "services/edgeTtsService.ts",
-            ".env.local"
+            "services/geminiService.ts",
+            "components/ResultDisplay.tsx"
         ],
-        "notes": "Backend TTS hiện đã cực kỳ ổn định với retry logic (3 lần) và voice validation (chống 'Kore' crash). Đã cấu hình OPENAI_API_KEY chính xác cho 9router."
+        "notes": "Đã fix translateResult prompt thêm rule translate videoSegmentation fields cụ thể. sanitizeAnalysisResult giờ gọi sanitizeSegmentation để preserve videoSegmentation. ResultDisplay.tsx render block 'PHÂN TÍCH PHÂN CẢNH VIDEO (Đã dịch)' xanh lá mirror UI gốc."
     },
     "pending_tasks": [
-        {
-            "task": "Fix generateScript prompt — add plotTwist, characterArchetype, focus, targetAudience, pacing to Gemini prompt",
-            "priority": "high",
-            "notes": "File: services/geminiService.ts lines 203-206. Currently only sends style and tone."
-        },
         {
             "task": "Migrate heavy audio payload from React state to IndexedDB end-to-end",
             "priority": "high",
@@ -26,151 +20,133 @@
             "task": "Optimize bundle size warning (>500k) via code-splitting/manual chunks",
             "priority": "medium",
             "notes": "Vite build still warns on large chunk; prioritize splitting heavy script/audio modules."
+        },
+        {
+            "task": "Persist videoSegmentation vào SavedAnalysis history (hiện chỉ giữ trong working state, F5 ok nhưng load từ history sẽ mất)",
+            "priority": "low",
+            "notes": "Có thể cần cập nhật SavedAnalysis interface và useAnalysisHistory hook."
         }
     ],
     "recent_changes": [
         {
+            "timestamp": "2026-05-01T10:45:00+07:00",
+            "type": "fix",
+            "description": "Fix videoSegmentation bị mất khi dịch + dịch luôn phân cảnh khi bấm 'Dịch'. (1) sanitizeAnalysisResult giờ preserve videoSegmentation qua sanitizeSegmentation (trước đây bị strip). (2) translateResult prompt thêm rule cụ thể dịch text fields (title, content, mood, shots[].description) trong videoSegmentation, giữ nguyên numeric/timestamp. (3) ResultDisplay.tsx render block mới 'PHÂN TÍCH PHÂN CẢNH VIDEO (Đã dịch)' xanh lá, mirror UI gốc với copy text format.",
+            "files": [
+                "services/geminiService.ts",
+                "components/ResultDisplay.tsx"
+            ]
+        },
+        {
+            "timestamp": "2026-04-30T20:30:00+07:00",
+            "type": "feature",
+            "description": "Thêm tính năng PHÂN TÍCH PHÂN CẢNH VIDEO (AI Studio-style). User upload video → bấm 'Bắt Đầu Phân Tích' → hiện section emerald 'PHÂN TÍCH PHÂN CẢNH VIDEO' với nút riêng để trigger phân tích sâu (tiết kiệm token). Kết quả render dạng collapsible <details> với segments (timeRange + content + mood) và shots chi tiết bên trong. Nút Copy xuất text đẹp có thứ tự, tiêu đề viết hoa toàn bộ.",
+            "files": [
+                "types.ts",
+                "services/geminiService.ts",
+                "components/ResultDisplay.tsx",
+                "App.tsx"
+            ]
+        },
+        {
+            "timestamp": "2026-04-30T20:28:00+07:00",
+            "type": "experiment_reverted",
+            "description": "ĐÃ THỬ thêm tab 'Link YouTube' để phân tích trực tiếp từ URL (dùng Gemini SDK native với fileData.fileUri). Đã code đầy đủ tab + state youtubeUrl + helper generateGeminiJsonWithYoutube. Nhưng REVERT theo yêu cầu user vì: 9router dùng OpenAI protocol không support fileData.fileUri, bắt buộc phải dùng Gemini API native riêng → user không muốn config thêm GEMINI_API_KEY → revert clean về 2 tab Text + File.",
+            "files": [
+                "services/geminiService.ts",
+                "components/TranscriptInput.tsx",
+                "App.tsx"
+            ]
+        },
+        {
             "timestamp": "2026-04-07T21:50:00+07:00",
             "type": "infrastructure",
             "description": "Cập nhật .env.local: Bổ sung OPENAI_API_KEY (openclaw), OPENAI_BASE_URL (/v1) và OPENAI_MODEL (combo-tw4) để ổn định kết nối qua 9router.",
-            "files": [
-                ".env.local"
-            ]
+            "files": [".env.local"]
         },
         {
             "timestamp": "2026-04-07T22:10:00+07:00",
             "type": "fix",
             "description": "Nâng cấp Backend TTS Resilience: Thêm retry logic (3 lần) cho lỗi NoAudioReceived, thêm resolveVoiceId để validate/fallback voice không hợp lệ (như Kore), và thêm logging lỗi ra tts_error.txt.",
-            "files": [
-                "server/tts.ts",
-                "services/edgeTtsService.ts"
-            ]
-        },
-        {
-            "timestamp": "2026-02-13T23:00:00+07:00",
-            "type": "refactor",
-            "description": "C1: Refactored ScriptWriter.tsx from 1040 to ~500 lines. Extracted constants.ts, utils/audioUtils.ts, hooks/useAudioPlayer.ts.",
-            "files": [
-                "components/ScriptWriter.tsx",
-                "constants.ts",
-                "utils/audioUtils.ts",
-                "hooks/useAudioPlayer.ts"
-            ]
-        },
-        {
-            "timestamp": "2026-02-13T23:02:00+07:00",
-            "type": "refactor",
-            "description": "H4: Removed duplicate STYLE_LABELS/TONE_LABELS from ResultDisplay.tsx, now imports from shared constants.ts.",
-            "files": [
-                "components/ResultDisplay.tsx",
-                "constants.ts"
-            ]
-        },
-        {
-            "timestamp": "2026-02-13T23:04:00+07:00",
-            "type": "feature",
-            "description": "H1: Created ErrorBoundary.tsx class component wrapping App in index.tsx. Shows Vietnamese error UI.",
-            "files": [
-                "components/ErrorBoundary.tsx",
-                "index.tsx"
-            ]
-        },
-        {
-            "timestamp": "2026-02-13T23:05:00+07:00",
-            "type": "feature",
-            "description": "H2: Added beforeunload event listener in App.tsx to prevent accidental data loss.",
-            "files": [
-                "App.tsx"
-            ]
-        },
-        {
-            "timestamp": "2026-02-13T23:07:00+07:00",
-            "type": "feature",
-            "description": "M1: Added SEO meta tags (description, theme-color, OG, Twitter Card) to index.html, changed lang to 'vi'.",
-            "files": [
-                "index.html"
-            ]
-        },
-        {
-            "timestamp": "2026-02-13T23:08:00+07:00",
-            "type": "infrastructure",
-            "description": "M2: Replaced Tailwind CSS CDN with official @tailwindcss/vite plugin. Created index.css with @import 'tailwindcss'.",
-            "files": [
-                "vite.config.ts",
-                "index.css",
-                "index.html",
-                "package.json"
-            ]
-        },
-        {
-            "timestamp": "2026-02-13T23:09:00+07:00",
-            "type": "infrastructure",
-            "description": "Installed @types/react and @types/react-dom to fix React 19 class component type errors.",
-            "files": [
-                "package.json"
-            ]
-        },
-        {
-            "timestamp": "2026-03-28T20:30:00+07:00",
-            "type": "feature",
-            "description": "Di chuyển toàn bộ hệ thống TTS sang Edge TTS. Tạo backend Express (port 3001) dùng edge-tts-universal để tiết kiệm token Gemini và lấy giọng Việt tự nhiên.",
-            "files": [
-                "server/tts.ts",
-                "services/edgeTtsService.ts",
-                "vite.config.ts",
-                "package.json",
-                "constants.ts"
-            ]
-        },
-        {
-            "timestamp": "2026-03-28T21:15:00+07:00",
-            "type": "feature",
-            "description": "Nâng cấp giao diện Audio Player: Thanh tiến trình gradient, hỗ trợ nhấn để Tua (Seek), hiển thị thời gian thực và thời lượng.",
-            "files": [
-                "components/ScriptWriter.tsx",
-                "hooks/useAudioPlayer.ts",
-                "types.ts"
-            ]
-        },
-        {
-            "timestamp": "2026-03-28T21:30:00+07:00",
-            "type": "fix",
-            "description": "Thêm cơ chế Fallback tự động trong backend TTS. Nếu giọng AI Multilingual hoặc server lỗi, tự động chuyển sang giọng Hoài My.",
-            "files": [
-                "server/tts.ts"
-            ]
-        },
-        {
-            "timestamp": "2026-03-28T23:50:00+07:00",
-            "type": "optimization",
-            "description": "Tối ưu hóa danh sách giọng Podcast tiếng Anh, xóa giọng lỗi, thêm tùy chọn tốc độ 0.9x/0.95x và gộp lệnh npm start.",
-            "files": [
-                "constants.ts",
-                "server/tts.ts",
-                "package.json"
-            ]
-        },
-        {
-            "timestamp": "2026-03-30T22:40:00+07:00",
-            "type": "optimization",
-            "description": "Triển khai gói ổn định ưu tiên cao: chống quota localStorage, giới hạn cache audio trong useAudioPlayer, bổ sung scripts test/smoke và làm sạch voice list.",
-            "files": [
-                "App.tsx",
-                "hooks/useAudioPlayer.ts",
-                "server/tts.ts",
-                "constants.ts",
-                "package.json"
-            ]
+            "files": ["server/tts.ts", "services/edgeTtsService.ts"]
         },
         {
             "timestamp": "2026-03-31T00:15:00+07:00",
             "type": "optimization",
             "description": "Tối ưu trải nghiệm TTS: Gắn tag mục đích [Learning/Podcast...], cá nhân hóa câu nghe thử theo từng giọng, và nâng cấp fallback locale-aware cho backend.",
-            "files": [
-                "server/tts.ts",
-                "constants.ts",
-                "hooks/useAudioPlayer.ts"
-            ]
+            "files": ["server/tts.ts", "constants.ts", "hooks/useAudioPlayer.ts"]
+        },
+        {
+            "timestamp": "2026-03-30T22:40:00+07:00",
+            "type": "optimization",
+            "description": "Triển khai gói ổn định ưu tiên cao: chống quota localStorage, giới hạn cache audio trong useAudioPlayer, bổ sung scripts test/smoke và làm sạch voice list.",
+            "files": ["App.tsx", "hooks/useAudioPlayer.ts", "server/tts.ts", "constants.ts", "package.json"]
+        },
+        {
+            "timestamp": "2026-03-28T23:50:00+07:00",
+            "type": "optimization",
+            "description": "Tối ưu hóa danh sách giọng Podcast tiếng Anh, xóa giọng lỗi, thêm tùy chọn tốc độ 0.9x/0.95x và gộp lệnh npm start.",
+            "files": ["constants.ts", "server/tts.ts", "package.json"]
+        },
+        {
+            "timestamp": "2026-03-28T21:30:00+07:00",
+            "type": "fix",
+            "description": "Thêm cơ chế Fallback tự động trong backend TTS. Nếu giọng AI Multilingual hoặc server lỗi, tự động chuyển sang giọng Hoài My.",
+            "files": ["server/tts.ts"]
+        },
+        {
+            "timestamp": "2026-03-28T21:15:00+07:00",
+            "type": "feature",
+            "description": "Nâng cấp giao diện Audio Player: Thanh tiến trình gradient, hỗ trợ nhấn để Tua (Seek), hiển thị thời gian thực và thời lượng.",
+            "files": ["components/ScriptWriter.tsx", "hooks/useAudioPlayer.ts", "types.ts"]
+        },
+        {
+            "timestamp": "2026-03-28T20:30:00+07:00",
+            "type": "feature",
+            "description": "Di chuyển toàn bộ hệ thống TTS sang Edge TTS. Tạo backend Express (port 3001) dùng edge-tts-universal để tiết kiệm token Gemini và lấy giọng Việt tự nhiên.",
+            "files": ["server/tts.ts", "services/edgeTtsService.ts", "vite.config.ts", "package.json", "constants.ts"]
+        },
+        {
+            "timestamp": "2026-02-13T23:09:00+07:00",
+            "type": "infrastructure",
+            "description": "Installed @types/react and @types/react-dom to fix React 19 class component type errors.",
+            "files": ["package.json"]
+        },
+        {
+            "timestamp": "2026-02-13T23:08:00+07:00",
+            "type": "infrastructure",
+            "description": "M2: Replaced Tailwind CSS CDN with official @tailwindcss/vite plugin. Created index.css with @import 'tailwindcss'.",
+            "files": ["vite.config.ts", "index.css", "index.html", "package.json"]
+        },
+        {
+            "timestamp": "2026-02-13T23:07:00+07:00",
+            "type": "feature",
+            "description": "M1: Added SEO meta tags (description, theme-color, OG, Twitter Card) to index.html, changed lang to 'vi'.",
+            "files": ["index.html"]
+        },
+        {
+            "timestamp": "2026-02-13T23:05:00+07:00",
+            "type": "feature",
+            "description": "H2: Added beforeunload event listener in App.tsx to prevent accidental data loss.",
+            "files": ["App.tsx"]
+        },
+        {
+            "timestamp": "2026-02-13T23:04:00+07:00",
+            "type": "feature",
+            "description": "H1: Created ErrorBoundary.tsx class component wrapping App in index.tsx. Shows Vietnamese error UI.",
+            "files": ["components/ErrorBoundary.tsx", "index.tsx"]
+        },
+        {
+            "timestamp": "2026-02-13T23:02:00+07:00",
+            "type": "refactor",
+            "description": "H4: Removed duplicate STYLE_LABELS/TONE_LABELS from ResultDisplay.tsx, now imports from shared constants.ts.",
+            "files": ["components/ResultDisplay.tsx", "constants.ts"]
+        },
+        {
+            "timestamp": "2026-02-13T23:00:00+07:00",
+            "type": "refactor",
+            "description": "C1: Refactored ScriptWriter.tsx from 1040 to ~500 lines. Extracted constants.ts, utils/audioUtils.ts, hooks/useAudioPlayer.ts.",
+            "files": ["components/ScriptWriter.tsx", "constants.ts", "utils/audioUtils.ts", "hooks/useAudioPlayer.ts"]
         }
     ],
     "errors_encountered": [
@@ -193,9 +169,30 @@
             "error": "Nhiều voice multilingual hiển thị trong UI nhưng thực tế fallback ngầm về Hoài My nên nghe bị trùng giọng.",
             "solution": "Tạo script test gọi trực tiếp `/api/tts`, kiểm tra `fallbackApplied` + `resolvedVoice`, sau đó loại voice không đạt khỏi backend/frontend.",
             "resolved": true
+        },
+        {
+            "error": "9router (combo-tw4 dù backend dùng Gemini) KHÔNG support YouTube URL trực tiếp qua fileData.fileUri.",
+            "solution": "Đây là giới hạn protocol: 9router theo OpenAI Chat Completions spec chỉ có image_url/input_audio/text, KHÔNG có fileData.fileUri vốn là đặc quyền của Gemini native API. Workaround: phải gọi @google/genai SDK trực tiếp với GEMINI_API_KEY riêng. Đã thử implement xong nhưng user revert vì không muốn config thêm key.",
+            "resolved": true
         }
     ],
     "decisions_made": [
+        {
+            "decision": "Phân Tích Phân Cảnh Video dùng nút trigger thủ công thay vì auto-run",
+            "reason": "Mỗi call segmentation tốn thêm ~50K tokens (vì gửi lại toàn bộ video base64). User chọn option 'Nút riêng sau analyze' để chủ động trigger khi cần, tránh lãng phí token cho mọi lần phân tích."
+        },
+        {
+            "decision": "Copy text segmentation định dạng plain text có thứ tự thay vì JSON raw",
+            "reason": "User muốn paste vào Word/Notion đẹp ngay. Implement segmentationText với indent + bullet để mirror UI layout."
+        },
+        {
+            "decision": "Tiêu đề segment dùng .toUpperCase() trong JS thay vì chỉ CSS uppercase",
+            "reason": "Đảm bảo khi copy ra clipboard text cũng là chữ hoa thật, không phụ thuộc style hiển thị của target app."
+        },
+        {
+            "decision": "Revert tab YouTube — chỉ giữ Text + File upload",
+            "reason": "9router không support YouTube URL qua fileData.fileUri (giới hạn OpenAI protocol). Phải dùng Gemini API native riêng → user không muốn quản lý thêm GEMINI_API_KEY → ưu tiên đơn giản, dùng combo-tw4 cho cả text + file."
+        },
         {
             "decision": "Extract constants.ts as shared module",
             "reason": "Eliminate duplicate STYLE_LABELS/TONE_LABELS between ScriptWriter and ResultDisplay"

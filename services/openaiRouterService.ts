@@ -58,12 +58,39 @@ function extractJson(content: string): string {
   }
 
   const firstBrace = content.indexOf("{");
+  if (firstBrace === -1) return content.trim();
+
+  let depth = 0;
+  let inString = false;
+  let escaped = false;
+  for (let i = firstBrace; i < content.length; i++) {
+    const ch = content[i];
+    if (escaped) {
+      escaped = false;
+      continue;
+    }
+    if (ch === "\\") {
+      escaped = true;
+      continue;
+    }
+    if (ch === '"') {
+      inString = !inString;
+      continue;
+    }
+    if (inString) continue;
+    if (ch === "{") depth++;
+    if (ch === "}") {
+      depth--;
+      if (depth === 0) return content.slice(firstBrace, i + 1);
+    }
+  }
+
   const lastBrace = content.lastIndexOf("}");
-  if (firstBrace !== -1 && lastBrace !== -1 && lastBrace > firstBrace) {
+  if (lastBrace > firstBrace) {
     return content.slice(firstBrace, lastBrace + 1);
   }
 
-  return content.trim();
+  return content.slice(firstBrace).trim();
 }
 
 export async function generateRouterText(params: {
@@ -103,6 +130,15 @@ export async function generateRouterText(params: {
   return content;
 }
 
+async function repairJson<T>(raw: string): Promise<T> {
+  const repaired = await generateRouterText({
+    temperature: 0,
+    maxTokens: 16384,
+    prompt: `Fix the following malformed JSON into valid JSON only. Preserve all fields and values. Do not add explanations.\n\n${raw}`,
+  });
+  return JSON.parse(extractJson(repaired)) as T;
+}
+
 export async function generateRouterJson<T>(params: {
   prompt: string;
   systemInstruction?: string;
@@ -118,8 +154,13 @@ export async function generateRouterJson<T>(params: {
   try {
     return JSON.parse(extractJson(raw)) as T;
   } catch (error) {
-    console.error('[router] JSON parse failed', { rawPreview: raw.slice(0, 200) });
-    throw new Error("Phản hồi từ 9router không đúng định dạng JSON.");
+    console.warn('[router] JSON parse failed, attempting repair', { rawPreview: raw.slice(0, 200) });
+    try {
+      return await repairJson<T>(raw);
+    } catch {
+      console.error('[router] JSON repair failed', { rawPreview: raw.slice(0, 500), rawTail: raw.slice(-500) });
+      throw new Error("Phản hồi từ 9router không đúng định dạng JSON.");
+    }
   }
 }
 
@@ -128,6 +169,7 @@ export async function generateRouterJsonWithFile<T>(params: {
   file: { mimeType: string; data: string };
   systemInstruction?: string;
   temperature?: number;
+  maxTokens?: number;
   model?: string;
 }): Promise<T> {
   const client = getRouterClient();
@@ -156,7 +198,18 @@ export async function generateRouterJsonWithFile<T>(params: {
       model: params.model || DEFAULT_MODEL,
       messages,
       temperature: params.temperature ?? 0.2,
-      max_tokens: 8192,
+      max_tokens: params.maxTokens ?? 8192,
+      response_format: { type: "json_object" },
+    }).catch(error => {
+      if (error?.status === 400) {
+        return client.chat.completions.create({
+          model: params.model || DEFAULT_MODEL,
+          messages,
+          temperature: params.temperature ?? 0.2,
+          max_tokens: params.maxTokens ?? 8192,
+        });
+      }
+      throw error;
     })
   );
 
@@ -165,6 +218,22 @@ export async function generateRouterJsonWithFile<T>(params: {
   try {
     return JSON.parse(extractJson(raw)) as T;
   } catch (error) {
-    throw new Error("Phản hồi từ 9router không đúng định dạng JSON.");
+    console.warn('[router] JSON file parse failed, attempting repair', {
+      chars: raw.length,
+      finishReason: response.choices[0]?.finish_reason,
+      rawPreview: raw.slice(0, 500),
+      rawTail: raw.slice(-500),
+    });
+    try {
+      return await repairJson<T>(raw);
+    } catch {
+      console.error('[router] JSON file repair failed', {
+        chars: raw.length,
+        finishReason: response.choices[0]?.finish_reason,
+        rawPreview: raw.slice(0, 500),
+        rawTail: raw.slice(-500),
+      });
+      throw new Error("Phản hồi từ 9router không đúng định dạng JSON.");
+    }
   }
 }

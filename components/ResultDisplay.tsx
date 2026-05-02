@@ -3,7 +3,7 @@ import React from 'react';
 import type { AnalysisResult } from '../types';
 import { CopyButton } from './CopyButton';
 import { LanguageSelector } from './LanguageSelector';
-import { KeyPointIcon, ScriptIcon, TranslateIcon, SaveIcon, CheckIcon, DownloadIcon, TextIcon, SpeakerIcon, YoutubeIcon } from './icons';
+import { KeyPointIcon, ScriptIcon, TranslateIcon, SaveIcon, CheckIcon, DownloadIcon, TextIcon, SpeakerIcon, YoutubeIcon, VideoIcon } from './icons';
 import { LoadingSpinner } from './LoadingSpinner';
 import { ErrorDisplay } from './ErrorDisplay';
 import { STYLE_LABELS, TONE_LABELS } from '../constants';
@@ -20,6 +20,11 @@ interface ResultDisplayProps {
   onSave: () => void;
   isSaved: boolean;
   onExport: () => void;
+  // Video deep-analysis (segmentation + shots) — only relevant when source is a video file
+  canSegmentVideo?: boolean;
+  onAnalyzeSegmentation?: () => void;
+  isSegmenting?: boolean;
+  segmentationError?: string | null;
 }
 
 export const ResultDisplay: React.FC<ResultDisplayProps> = ({
@@ -33,8 +38,36 @@ export const ResultDisplay: React.FC<ResultDisplayProps> = ({
   onGoToScriptWriter,
   onSave,
   isSaved,
-  onExport
+  onExport,
+  canSegmentVideo = false,
+  onAnalyzeSegmentation,
+  isSegmenting = false,
+  segmentationError = null,
 }) => {
+  const segmentation = result.videoSegmentation;
+
+  // Format segmentation as a clean, ordered, human-readable text (mirrors the UI layout).
+  const segmentationText = segmentation
+    ? [
+        `PHÂN TÍCH PHÂN CẢNH VIDEO`,
+        `Tổng phân đoạn: ${segmentation.totalSegments}`,
+        segmentation.pacingNote ? `Nhịp độ: ${segmentation.pacingNote}` : '',
+        '',
+        ...segmentation.segments.map(seg => {
+          const head = `${seg.index}. ${seg.title.toUpperCase()}${seg.timeRange ? ` (${seg.timeRange})` : ''}`;
+          const lines = [
+            head,
+            seg.content ? `   • Nội dung: ${seg.content}` : '',
+            seg.mood ? `   • Không khí: ${seg.mood}` : '',
+            seg.shots.length > 0 ? `   Phân cảnh chi tiết (${seg.shots.length}):` : '',
+            ...seg.shots.map(sh => `     ${sh.index}. ${sh.timeRange ? `[${sh.timeRange}] ` : ''}${sh.description}`),
+          ].filter(Boolean);
+          return lines.join('\n');
+        }),
+      ]
+        .filter(Boolean)
+        .join('\n')
+    : '';
   const keyPointsText = result.keyPoints.map(point => `- ${point}`).join('\n');
   const hashtagsText = result.suggestedHashtags.map(tag => tag.startsWith('#') ? tag : `#${tag}`).join(' ');
 
@@ -190,6 +223,108 @@ export const ResultDisplay: React.FC<ResultDisplayProps> = ({
         </div>
       </div>
 
+      {/* Video Segmentation Section (only when source is a video file) */}
+      {canSegmentVideo && (
+        <div className="bg-gradient-to-br from-emerald-900/20 to-cyan-900/20 border border-emerald-500/30 rounded-xl shadow-lg p-6">
+          <div className="flex items-start justify-between gap-4 mb-4 flex-wrap">
+            <div>
+              <h2 className="text-xl font-bold text-emerald-300 flex items-center gap-2">
+                <VideoIcon />
+                <span>PHÂN TÍCH PHÂN CẢNH VIDEO</span>
+              </h2>
+              <p className="text-slate-400 text-sm mt-1">
+                Quan sát video & chia thành các phân đoạn theo timeline + liệt kê chi tiết từng shot (~8–10s).
+              </p>
+            </div>
+            {!segmentation && (
+              <button
+                onClick={onAnalyzeSegmentation}
+                disabled={isSegmenting || !onAnalyzeSegmentation}
+                className="px-5 py-2.5 bg-gradient-to-r from-emerald-600 to-cyan-600 text-white font-semibold rounded-lg shadow-md hover:from-emerald-700 hover:to-cyan-700 disabled:opacity-50 disabled:cursor-not-allowed transition-all flex items-center gap-2"
+              >
+                {isSegmenting ? 'Đang phân tích...' : 'Phân Tích Phân Cảnh'}
+              </button>
+            )}
+          </div>
+
+          {segmentationError && <ErrorDisplay message={segmentationError} />}
+          {isSegmenting && <LoadingSpinner />}
+
+          {segmentation && (
+            <div className="mt-4 space-y-4">
+              <div className="flex flex-wrap items-center gap-4 p-3 bg-slate-900/50 rounded-lg border border-slate-700">
+                <div className="text-sm">
+                  <span className="text-slate-500 uppercase text-xs font-semibold mr-2">Tổng phân đoạn:</span>
+                  <span className="text-emerald-400 font-bold">{segmentation.totalSegments}</span>
+                </div>
+                {segmentation.pacingNote && (
+                  <div className="text-sm text-slate-300 italic flex-1 min-w-[200px]">
+                    {segmentation.pacingNote}
+                  </div>
+                )}
+                <CopyButton textToCopy={segmentationText} />
+              </div>
+
+              <div className="space-y-3">
+                {segmentation.segments.map(seg => (
+                  <details
+                    key={seg.index}
+                    open
+                    className="bg-slate-900/40 border border-slate-700 rounded-lg group"
+                  >
+                    <summary className="cursor-pointer p-4 flex items-start justify-between gap-3 hover:bg-slate-900/70 transition-colors rounded-lg">
+                      <div className="flex-1">
+                        <div className="flex items-center gap-2 flex-wrap">
+                          <span className="text-emerald-400 font-bold uppercase tracking-wide">
+                            {seg.index}. {seg.title}
+                          </span>
+                          {seg.timeRange && (
+                            <span className="text-xs px-2 py-0.5 bg-slate-800 border border-slate-600 rounded text-slate-300 font-mono">
+                              {seg.timeRange}
+                            </span>
+                          )}
+                          <span className="text-xs text-slate-500">
+                            {seg.shots.length} phân cảnh
+                          </span>
+                        </div>
+                        {seg.content && (
+                          <p className="text-sm text-slate-300 mt-2">
+                            <span className="text-slate-500 font-semibold">Nội dung: </span>{seg.content}
+                          </p>
+                        )}
+                        {seg.mood && (
+                          <p className="text-sm text-slate-400 mt-1 italic">
+                            <span className="text-slate-500 font-semibold not-italic">Không khí: </span>{seg.mood}
+                          </p>
+                        )}
+                      </div>
+                    </summary>
+                    {seg.shots.length > 0 && (
+                      <ol className="px-6 pb-4 pt-1 space-y-1.5 list-decimal list-inside marker:text-emerald-500/70">
+                        {seg.shots.map(shot => (
+                          <li key={shot.index} className="text-slate-300 text-sm pl-1">
+                            {shot.timeRange && <span className="text-xs font-mono text-emerald-400/80 mr-2">[{shot.timeRange}]</span>}
+                            {shot.description}
+                          </li>
+                        ))}
+                      </ol>
+                    )}
+                  </details>
+                ))}
+              </div>
+
+              <button
+                onClick={onAnalyzeSegmentation}
+                disabled={isSegmenting || !onAnalyzeSegmentation}
+                className="text-xs text-emerald-400/80 hover:text-emerald-300 underline disabled:opacity-50"
+              >
+                Phân tích lại
+              </button>
+            </div>
+          )}
+        </div>
+      )}
+
       {/* Translation Section */}
       <div className="border-t-2 border-slate-700/50 pt-8 mt-8">
         <div className="flex flex-col sm:flex-row items-center gap-4 bg-slate-800 p-4 rounded-lg">
@@ -289,6 +424,97 @@ export const ResultDisplay: React.FC<ResultDisplayProps> = ({
                 </div>
               </div>
             </div>
+
+            {/* Translated Video Segmentation */}
+            {translatedResult.videoSegmentation && (
+              <div className="bg-gradient-to-br from-emerald-900/20 to-cyan-900/20 border border-green-500/30 rounded-xl shadow-lg p-6">
+                <div className="flex items-start justify-between gap-4 mb-4 flex-wrap">
+                  <div>
+                    <h2 className="text-xl font-bold text-green-300 flex items-center gap-2">
+                      <VideoIcon />
+                      <span>PHÂN TÍCH PHÂN CẢNH VIDEO (Đã dịch)</span>
+                    </h2>
+                  </div>
+                  <CopyButton
+                    textToCopy={[
+                      `VIDEO SEGMENTATION (Translated)`,
+                      `Total segments: ${translatedResult.videoSegmentation.totalSegments}`,
+                      translatedResult.videoSegmentation.pacingNote ? `Pacing: ${translatedResult.videoSegmentation.pacingNote}` : '',
+                      '',
+                      ...translatedResult.videoSegmentation.segments.map(seg => {
+                        const head = `${seg.index}. ${seg.title.toUpperCase()}${seg.timeRange ? ` (${seg.timeRange})` : ''}`;
+                        const lines = [
+                          head,
+                          seg.content ? `   • Content: ${seg.content}` : '',
+                          seg.mood ? `   • Mood: ${seg.mood}` : '',
+                          seg.shots.length > 0 ? `   Shots (${seg.shots.length}):` : '',
+                          ...seg.shots.map(sh => `     ${sh.index}. ${sh.timeRange ? `[${sh.timeRange}] ` : ''}${sh.description}`),
+                        ].filter(Boolean);
+                        return lines.join('\n');
+                      }),
+                    ].filter(Boolean).join('\n')}
+                  />
+                </div>
+                <div className="flex flex-wrap items-center gap-4 p-3 bg-slate-900/50 rounded-lg border border-slate-700 mb-3">
+                  <div className="text-sm">
+                    <span className="text-slate-500 uppercase text-xs font-semibold mr-2">Tổng phân đoạn:</span>
+                    <span className="text-green-400 font-bold">{translatedResult.videoSegmentation.totalSegments}</span>
+                  </div>
+                  {translatedResult.videoSegmentation.pacingNote && (
+                    <div className="text-sm text-slate-300 italic flex-1 min-w-[200px]">
+                      {translatedResult.videoSegmentation.pacingNote}
+                    </div>
+                  )}
+                </div>
+                <div className="space-y-3">
+                  {translatedResult.videoSegmentation.segments.map(seg => (
+                    <details
+                      key={seg.index}
+                      open
+                      className="bg-slate-900/40 border border-slate-700 rounded-lg group"
+                    >
+                      <summary className="cursor-pointer p-4 flex items-start justify-between gap-3 hover:bg-slate-900/70 transition-colors rounded-lg">
+                        <div className="flex-1">
+                          <div className="flex items-center gap-2 flex-wrap">
+                            <span className="text-green-400 font-bold uppercase tracking-wide">
+                              {seg.index}. {seg.title}
+                            </span>
+                            {seg.timeRange && (
+                              <span className="text-xs px-2 py-0.5 bg-slate-800 border border-slate-600 rounded text-slate-300 font-mono">
+                                {seg.timeRange}
+                              </span>
+                            )}
+                            <span className="text-xs text-slate-500">
+                              {seg.shots.length} phân cảnh
+                            </span>
+                          </div>
+                          {seg.content && (
+                            <p className="text-sm text-slate-300 mt-2">
+                              <span className="text-slate-500 font-semibold">Nội dung: </span>{seg.content}
+                            </p>
+                          )}
+                          {seg.mood && (
+                            <p className="text-sm text-slate-400 mt-1 italic">
+                              <span className="text-slate-500 font-semibold not-italic">Không khí: </span>{seg.mood}
+                            </p>
+                          )}
+                        </div>
+                      </summary>
+                      {seg.shots.length > 0 && (
+                        <ol className="px-6 pb-4 pt-1 space-y-1.5 list-decimal list-inside marker:text-green-500/70">
+                          {seg.shots.map(shot => (
+                            <li key={shot.index} className="text-slate-300 text-sm pl-1">
+                              {shot.timeRange && <span className="text-xs font-mono text-green-400/80 mr-2">[{shot.timeRange}]</span>}
+                              {shot.description}
+                            </li>
+                          ))}
+                        </ol>
+                      )}
+                    </details>
+                  ))}
+                </div>
+              </div>
+            )}
 
             <div className="text-center pt-4">
               <button
